@@ -131,6 +131,22 @@ export class SignupComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
+  signupWithGoogle(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.authService.getGoogleAuthUrl().subscribe({
+      next: (authUrl: string) => {
+        // Redirect to Google OAuth
+        window.location.href = authUrl;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.isLoading = false;
+        this.errorMessage = this.getErrorMessage(error);
+      }
+    });
+  }
+
   private getErrorMessage(error: HttpErrorResponse): string {
     // Handle different error scenarios with user-friendly messages
     if (error.status === 0) {

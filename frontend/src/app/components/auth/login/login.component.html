@@ -74,6 +74,21 @@
             </mat-error>
           </div>
         </form>
+
+        <div class="divider">
+          <span class="divider-text">or</span>
+        </div>
+
+        <div class="oauth-buttons">
+          <button type="button"
+                  mat-stroked-button
+                  class="oauth-button google-button full-width"
+                  (click)="loginWithGoogle()"
+                  [disabled]="isLoading">
+            <img src="assets/google-icon.svg" alt="Google" class="oauth-icon">
+            <span>Continue with Google</span>
+          </button>
+        </div>
       </mat-card-content>
       
       <mat-card-actions class="card-actions">

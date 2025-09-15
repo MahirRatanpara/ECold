@@ -41,6 +41,7 @@ import { AppComponent } from './app.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { LoginComponent } from './components/auth/login/login.component';
 import { SignupComponent } from './components/auth/signup/signup.component';
+import { GoogleCallbackComponent } from './components/auth/google-callback/google-callback.component';
 import { RecruiterListComponent } from './components/recruiters/recruiter-list/recruiter-list.component';
 import { RecruiterEditDialogComponent } from './components/recruiters/recruiter-edit-dialog/recruiter-edit-dialog.component';
 import { RecruiterViewDialogComponent } from './components/recruiters/recruiter-view-dialog/recruiter-view-dialog.component';
@@ -58,6 +59,7 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
     DashboardComponent,
     LoginComponent,
     SignupComponent,
+    GoogleCallbackComponent,
     RecruiterListComponent,
     RecruiterEditDialogComponent,
     RecruiterViewDialogComponent,

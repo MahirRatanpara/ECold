@@ -39,7 +39,7 @@ export class LoginComponent implements OnInit {
     if (this.loginForm.valid) {
       this.isLoading = true;
       this.errorMessage = '';
-      
+
       const credentials = {
         email: this.loginForm.value.email,
         password: this.loginForm.value.password,
@@ -64,6 +64,22 @@ export class LoginComponent implements OnInit {
     } else {
       this.markFormGroupTouched();
     }
+  }
+
+  loginWithGoogle(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.authService.getGoogleAuthUrl().subscribe({
+      next: (authUrl: string) => {
+        // Redirect to Google OAuth
+        window.location.href = authUrl;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.isLoading = false;
+        this.errorMessage = this.getErrorMessage(error);
+      }
+    });
   }
 
   private markFormGroupTouched(): void {

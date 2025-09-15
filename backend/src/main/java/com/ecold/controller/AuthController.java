@@ -6,10 +6,12 @@ import com.ecold.dto.SignupRequest;
 import com.ecold.dto.UserDto;
 import com.ecold.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
+@Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -32,14 +34,36 @@ public class AuthController {
     
     @GetMapping("/google")
     public ResponseEntity<String> googleLogin() {
-        String authUrl = authService.getGoogleAuthUrl();
-        return ResponseEntity.ok(authUrl);
+        log.info("🚀 Google OAuth login endpoint called");
+        try {
+            String authUrl = authService.getGoogleAuthUrl();
+            log.info("✅ Generated Google auth URL: {}", authUrl);
+            return ResponseEntity.ok(authUrl);
+        } catch (Exception e) {
+            log.error("❌ Error in Google OAuth login: {}", e.getMessage(), e);
+            throw e;
+        }
     }
-    
+
     @PostMapping("/google/callback")
-    public ResponseEntity<LoginResponse> googleCallback(@RequestParam String code) {
-        LoginResponse response = authService.processGoogleCallback(code);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<LoginResponse> googleCallback(@RequestBody GoogleCallbackRequest request) {
+        log.info("🔄 Google OAuth callback called with code: {}", request.getCode() != null ? "present" : "null");
+        try {
+            LoginResponse response = authService.processGoogleCallback(request.getCode());
+            log.info("✅ Google OAuth callback successful for user: {}", response.getUser().getEmail());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Error in Google OAuth callback: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+
+    // Inner class for request body
+    public static class GoogleCallbackRequest {
+        private String code;
+
+        public String getCode() { return code; }
+        public void setCode(String code) { this.code = code; }
     }
     
     @GetMapping("/microsoft")

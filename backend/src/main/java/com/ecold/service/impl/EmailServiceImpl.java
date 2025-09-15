@@ -7,13 +7,16 @@ import com.ecold.entity.RecruiterContact;
 import com.ecold.entity.User;
 import com.ecold.repository.EmailTemplateRepository;
 import com.ecold.repository.RecruiterContactRepository;
+import com.ecold.repository.UserRepository;
 import com.ecold.service.EmailService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
@@ -28,12 +31,27 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 @Primary
-@RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
 
-    private final JavaMailSender mailSender;
+    @Autowired(required = false)
+    private JavaMailSender mailSender;
+
     private final EmailTemplateRepository templateRepository;
     private final RecruiterContactRepository recruiterRepository;
+    private final UserRepository userRepository;
+
+    @Qualifier("gmailOAuthService")
+    private final EmailService gmailOAuthService;
+
+    public EmailServiceImpl(EmailTemplateRepository templateRepository,
+                           RecruiterContactRepository recruiterRepository,
+                           UserRepository userRepository,
+                           @Qualifier("gmailOAuthService") EmailService gmailOAuthService) {
+        this.templateRepository = templateRepository;
+        this.recruiterRepository = recruiterRepository;
+        this.userRepository = userRepository;
+        this.gmailOAuthService = gmailOAuthService;
+    }
     
     @Value("${spring.mail.username:#{null}}")
     private String fromEmail;
@@ -47,6 +65,15 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public EmailResponse sendEmail(EmailRequest emailRequest, User user) {
         log.info("Starting email send process for user: {} to: {}", user.getEmail(), emailRequest.getTo());
+
+        // If user is authenticated with Google and has valid tokens, use Gmail OAuth
+        if (user.getProvider() == User.Provider.GOOGLE && hasValidGmailTokens(user)) {
+            log.info("Using Gmail OAuth for user: {}", user.getEmail());
+            return gmailOAuthService.sendEmail(emailRequest, user);
+        }
+
+        // Fall back to SMTP configuration
+        log.info("Using SMTP configuration for user: {}", user.getEmail());
         log.info("Email enabled: {}, From email: {}", emailEnabled, fromEmail);
 
         if (!emailEnabled) {
@@ -57,8 +84,8 @@ public class EmailServiceImpl implements EmailService {
         boolean settingsValid = validateEmailSettings();
         log.info("Email settings validation result: {}", settingsValid);
         if (!settingsValid) {
-            log.error("Email validation failed - fromEmail: {}, mailSender: {}", fromEmail, mailSender != null);
-            return EmailResponse.failure("EMAIL_CONFIG_INVALID", "Email configuration is not properly set up");
+            log.error("SMTP email configuration not available. User must authenticate with Google OAuth to send emails.");
+            return EmailResponse.failure("SMTP_NOT_CONFIGURED", "SMTP email is not configured. Please sign in with Google to send emails from your Gmail account.");
         }
 
         try {
@@ -164,7 +191,28 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public boolean validateEmailSettings() {
-        return fromEmail != null && !fromEmail.trim().isEmpty() && mailSender != null;
+        // Check if SMTP is configured
+        boolean smtpConfigured = fromEmail != null && !fromEmail.trim().isEmpty() && mailSender != null;
+
+        if (smtpConfigured) {
+            return true;
+        }
+
+        // If SMTP is not configured, check if we can use Gmail OAuth
+        try {
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || authentication.getName() == null) {
+                log.debug("No authentication context available for Gmail OAuth validation");
+                return false;
+            }
+
+            String email = authentication.getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            return user != null && hasValidGmailTokens(user);
+        } catch (Exception e) {
+            log.debug("Could not validate Gmail OAuth settings: {}", e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -260,5 +308,12 @@ public class EmailServiceImpl implements EmailService {
 
     private String generateMessageId() {
         return "ecold-" + UUID.randomUUID().toString();
+    }
+
+    private boolean hasValidGmailTokens(User user) {
+        return user.getAccessToken() != null &&
+               !user.getAccessToken().isEmpty() &&
+               (user.getTokenExpiresAt() == null ||
+                user.getTokenExpiresAt().isAfter(LocalDateTime.now()));
     }
 }
