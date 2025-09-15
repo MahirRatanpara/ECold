@@ -1,0 +1,140 @@
+spring:
+  application:
+    name: ecold-backend
+  
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ecold}
+    username: ${DATABASE_USERNAME:ecold_user}
+    password: ${DATABASE_PASSWORD:ecold_pass123}
+    driver-class-name: ${DATABASE_DRIVER:org.postgresql.Driver}
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: ${DATABASE_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: "ecoldapplication@gmail.com"
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  
+# Temporarily disabled OAuth2 configuration
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          google:
+#            client-id: ${GOOGLE_CLIENT_ID:}
+#            client-secret: ${GOOGLE_CLIENT_SECRET:}
+#            scope: 
+#              - openid
+#              - profile
+#              - email
+#              - https://www.googleapis.com/auth/gmail.readonly
+#              - https://www.googleapis.com/auth/gmail.send
+#          microsoft:
+#            client-id: ${MICROSOFT_CLIENT_ID:}
+#            client-secret: ${MICROSOFT_CLIENT_SECRET:}
+#            scope:
+#              - openid
+#              - profile
+#              - email
+#              - https://graph.microsoft.com/mail.read
+#              - https://graph.microsoft.com/mail.send
+#        provider:
+#          microsoft:
+#            authorization-uri: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+#            token-uri: https://login.microsoftonline.com/common/oauth2/v2.0/token
+#            user-info-uri: https://graph.microsoft.com/v1.0/me
+#            user-name-attribute: id
+
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
+  
+  quartz:
+    job-store-type: jdbc
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceId: AUTO
+          jobStore:
+            class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+            driverDelegateClass: org.quartz.impl.jdbcjobstore.PostgreSQLDelegate
+            useProperties: false
+            tablePrefix: QRTZ_
+            isClustered: true
+            clusterCheckinInterval: 20000
+          threadPool:
+            class: org.quartz.simpl.SimpleThreadPool
+            threadCount: 10
+            threadPriority: 5
+            threadsInheritContextClassLoaderOfInitializingThread: true
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.ecold: ${LOG_LEVEL:DEBUG}
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:ecold-super-secret-key-change-in-production}
+    expiration: ${JWT_EXPIRATION:86400000}
+  email:
+    enabled: ${EMAIL_ENABLED:true}
+    from-name: ${EMAIL_FROM_NAME:ECold Application}
+    batch-size: ${EMAIL_BATCH_SIZE:50}
+    rate-limit: ${EMAIL_RATE_LIMIT:100}
+    retry-attempts: ${EMAIL_RETRY_ATTEMPTS:3}
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./uploads}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:3000}
+
+

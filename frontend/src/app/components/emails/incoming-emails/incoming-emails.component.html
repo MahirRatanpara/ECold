@@ -1,0 +1,374 @@
+<div class="incoming-emails-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="title-section">
+      <h1 class="page-title">
+        <mat-icon [matBadge]="unreadCount" matBadgeColor="warn" [matBadgeHidden]="unreadCount === 0">inbox</mat-icon>
+        Inbox
+      </h1>
+      <p class="page-subtitle">Manage incoming emails and track recruiter responses</p>
+    </div>
+    
+    <div class="action-buttons">
+      <button mat-raised-button color="primary" (click)="scanInbox()" [disabled]="isScanning">
+        <mat-spinner *ngIf="isScanning" diameter="16" class="scan-spinner"></mat-spinner>
+        <mat-icon *ngIf="!isScanning">sync</mat-icon>
+        {{ isScanning ? 'Scanning...' : 'Scan Inbox' }}
+      </button>
+      <button mat-stroked-button (click)="markAllAsRead()" [disabled]="unreadCount === 0">
+        <mat-icon>mark_email_read</mat-icon>
+        Mark All Read
+      </button>
+      <button mat-stroked-button [matMenuTriggerFor]="filterMenu">
+        <mat-icon>filter_list</mat-icon>
+        Filters
+      </button>
+      <mat-menu #filterMenu="matMenu">
+        <button mat-menu-item (click)="filterByStatus('unread')">
+          <mat-icon>mark_as_unread</mat-icon>
+          <span>Unread Only</span>
+        </button>
+        <button mat-menu-item (click)="filterByStatus('important')">
+          <mat-icon>star</mat-icon>
+          <span>Important</span>
+        </button>
+        <button mat-menu-item (click)="filterByStatus('responses')">
+          <mat-icon>reply</mat-icon>
+          <span>Responses Only</span>
+        </button>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="clearFilters()">
+          <mat-icon>clear</mat-icon>
+          <span>Clear Filters</span>
+        </button>
+      </mat-menu>
+    </div>
+  </div>
+
+  <!-- Email Stats -->
+  <div class="stats-section">
+    <div class="stats-grid">
+      <mat-card class="stat-card unread-emails">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>mark_as_unread</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ emailStats?.unreadCount || 0 }}</div>
+              <div class="stat-label">Unread Emails</div>
+              <div class="stat-change positive">+7 today</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card responses">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>reply</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ emailStats?.responseCount || 0 }}</div>
+              <div class="stat-label">Responses</div>
+              <div class="stat-change positive">+3 this week</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card important">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>star</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ emailStats?.importantCount || 0 }}</div>
+              <div class="stat-label">Important</div>
+              <div class="stat-change neutral">Flagged emails</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card total-emails">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>email</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ emailStats?.totalCount || 0 }}</div>
+              <div class="stat-label">Total Emails</div>
+              <div class="stat-change neutral">All time</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Search and Filter -->
+  <div class="filter-section">
+    <mat-card>
+      <mat-card-content>
+        <div class="filter-controls">
+          <mat-form-field class="search-field" appearance="outline">
+            <mat-label>Search emails...</mat-label>
+            <input matInput [(ngModel)]="searchQuery" (input)="applyFilter()" placeholder="Search by sender, subject, or content">
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="selectedCategory" (selectionChange)="applyFilter()">
+              <mat-option value="">All Categories</mat-option>
+              <mat-option value="RESPONSE">Responses</mat-option>
+              <mat-option value="REJECTION">Rejections</mat-option>
+              <mat-option value="INTERVIEW">Interview Requests</mat-option>
+              <mat-option value="FOLLOW_UP">Follow-ups</mat-option>
+              <mat-option value="OTHER">Other</mat-option>
+            </mat-select>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Date Range</mat-label>
+            <mat-select [(ngModel)]="selectedDateRange" (selectionChange)="applyFilter()">
+              <mat-option value="">All Time</mat-option>
+              <mat-option value="today">Today</mat-option>
+              <mat-option value="week">This Week</mat-option>
+              <mat-option value="month">This Month</mat-option>
+              <mat-option value="quarter">This Quarter</mat-option>
+            </mat-select>
+          </mat-form-field>
+          
+          <button mat-icon-button (click)="clearFilters()" matTooltip="Clear filters">
+            <mat-icon>clear</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="loading-content">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading emails...</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon color="warn">error</mat-icon>
+          <h3>Error Loading Emails</h3>
+          <p>{{ error }}</p>
+          <button mat-raised-button color="primary" (click)="loadEmails()">
+            <mat-icon>refresh</mat-icon>
+            Try Again
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Email List -->
+  <div *ngIf="!loading && !error" class="emails-section">
+    <mat-card class="emails-card">
+      <mat-card-header>
+        <mat-card-title>
+          Emails ({{ filteredEmails.length }})
+          <span class="email-count-badge" *ngIf="unreadCount > 0">{{ unreadCount }} unread</span>
+        </mat-card-title>
+        <div class="header-actions">
+          <mat-form-field appearance="outline" class="sort-field">
+            <mat-label>Sort by</mat-label>
+            <mat-select [(ngModel)]="sortBy" (selectionChange)="sortEmails()">
+              <mat-option value="date">Date</mat-option>
+              <mat-option value="sender">Sender</mat-option>
+              <mat-option value="subject">Subject</mat-option>
+              <mat-option value="category">Category</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </mat-card-header>
+      
+      <mat-card-content class="emails-list">
+        <div class="email-item" 
+             *ngFor="let email of paginatedEmails" 
+             [ngClass]="getEmailItemClass(email)"
+             (click)="selectEmail(email)">
+          <div class="email-header">
+            <div class="sender-info">
+              <div class="sender-avatar">
+                <mat-icon [ngClass]="getCategoryClass(email.category)">{{ getCategoryIcon(email.category) }}</mat-icon>
+              </div>
+              <div class="sender-details">
+                <div class="sender-name">{{ email.senderName || email.senderEmail }}</div>
+                <div class="sender-email">{{ email.senderEmail }}</div>
+              </div>
+            </div>
+            
+            <div class="email-meta">
+              <div class="email-date">{{ email.receivedAt | date:'MMM dd, HH:mm' }}</div>
+              <div class="email-flags">
+                <mat-icon *ngIf="email.isImportant" class="important-flag">star</mat-icon>
+                <mat-icon *ngIf="!email.isRead" class="unread-flag">fiber_manual_record</mat-icon>
+                <mat-icon *ngIf="email.hasAttachments" class="attachment-flag">attach_file</mat-icon>
+              </div>
+            </div>
+            
+            <div class="email-actions">
+              <button mat-icon-button (click)="toggleImportant(email); $event.stopPropagation()" 
+                      [class.important-active]="email.isImportant"
+                      matTooltip="Mark as important">
+                <mat-icon>star</mat-icon>
+              </button>
+              <button mat-icon-button (click)="toggleRead(email); $event.stopPropagation()" 
+                      matTooltip="Mark as {{ email.isRead ? 'unread' : 'read' }}">
+                <mat-icon>{{ email.isRead ? 'mark_as_unread' : 'mark_email_read' }}</mat-icon>
+              </button>
+              <button mat-icon-button [matMenuTriggerFor]="emailMenu" (click)="$event.stopPropagation()">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #emailMenu="matMenu">
+                <button mat-menu-item (click)="replyToEmail(email)">
+                  <mat-icon>reply</mat-icon>
+                  <span>Reply</span>
+                </button>
+                <button mat-menu-item (click)="forwardEmail(email)">
+                  <mat-icon>forward</mat-icon>
+                  <span>Forward</span>
+                </button>
+                <button mat-menu-item (click)="addToRecruiter(email)">
+                  <mat-icon>person_add</mat-icon>
+                  <span>Add to Recruiters</span>
+                </button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="archiveEmail(email)">
+                  <mat-icon>archive</mat-icon>
+                  <span>Archive</span>
+                </button>
+                <button mat-menu-item (click)="deleteEmail(email.id)" class="delete-action">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
+                </button>
+              </mat-menu>
+            </div>
+          </div>
+          
+          <div class="email-content">
+            <div class="email-subject">{{ email.subject }}</div>
+            <div class="email-preview">{{ getEmailPreview(email.body) }}</div>
+            
+            <div class="email-category-badge" [ngClass]="getCategoryClass(email.category)">
+              {{ email.category }}
+            </div>
+          </div>
+          
+          <div class="email-footer" *ngIf="email.attachments && email.attachments.length > 0">
+            <div class="attachments">
+              <mat-icon class="attachment-icon">attach_file</mat-icon>
+              <span class="attachment-count">{{ email.attachments.length }} attachment(s)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="filteredEmails.length === 0" class="empty-state">
+          <mat-icon>inbox</mat-icon>
+          <h3>No emails found</h3>
+          <p *ngIf="searchQuery || selectedCategory || selectedDateRange">
+            Try adjusting your filters or search terms.
+          </p>
+          <p *ngIf="!searchQuery && !selectedCategory && !selectedDateRange">
+            Your inbox is empty. New emails will appear here.
+          </p>
+          <button mat-raised-button color="primary" (click)="scanInbox()">
+            <mat-icon>sync</mat-icon>
+            Scan for New Emails
+          </button>
+        </div>
+      </mat-card-content>
+      
+      <!-- Pagination -->
+      <mat-card-actions *ngIf="filteredEmails.length > pageSize">
+        <mat-paginator 
+          [length]="filteredEmails.length"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 25, 50, 100]"
+          (page)="onPageChange($event)"
+          showFirstLastButtons>
+        </mat-paginator>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+
+  <!-- Email Detail Panel -->
+  <div class="email-detail" *ngIf="selectedEmail" [@slideIn]>
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>{{ selectedEmail.subject }}</mat-card-title>
+        <mat-card-subtitle>From: {{ selectedEmail.senderEmail }}</mat-card-subtitle>
+        <button mat-icon-button (click)="closeEmailDetail()" class="close-button">
+          <mat-icon>close</mat-icon>
+        </button>
+      </mat-card-header>
+      
+      <mat-card-content>
+        <div class="email-full-content">
+          <div class="email-metadata">
+            <div class="metadata-item">
+              <strong>Date:</strong> {{ selectedEmail.receivedAt | date:'full' }}
+            </div>
+            <div class="metadata-item" *ngIf="selectedEmail.category">
+              <strong>Category:</strong> 
+              <span class="category-tag" [ngClass]="getCategoryClass(selectedEmail.category)">
+                {{ selectedEmail.category }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="email-body" [innerHTML]="selectedEmail.body"></div>
+          
+          <div class="email-attachments" *ngIf="selectedEmail.attachments && selectedEmail.attachments.length > 0">
+            <h4>Attachments</h4>
+            <div class="attachment-list">
+              <div class="attachment-item" *ngFor="let attachment of selectedEmail.attachments">
+                <mat-icon>attach_file</mat-icon>
+                <span>{{ attachment.name }}</span>
+                <button mat-icon-button (click)="downloadAttachment(attachment)">
+                  <mat-icon>download</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </mat-card-content>
+      
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="replyToEmail(selectedEmail)">
+          <mat-icon>reply</mat-icon>
+          Reply
+        </button>
+        <button mat-stroked-button (click)="forwardEmail(selectedEmail)">
+          <mat-icon>forward</mat-icon>
+          Forward
+        </button>
+        <button mat-stroked-button (click)="addToRecruiter(selectedEmail)">
+          <mat-icon>person_add</mat-icon>
+          Add to Recruiters
+        </button>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

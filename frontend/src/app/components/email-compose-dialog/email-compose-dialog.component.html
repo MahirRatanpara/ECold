@@ -1,0 +1,237 @@
+<!-- email-compose-dialog.component.html -->
+<div class="email-compose-dialog">
+  <h2 mat-dialog-title>
+    <div class="header-content">
+      <div class="title-section">
+        <mat-icon>email</mat-icon>
+        <span>Compose Email</span>
+      </div>
+      <div class="recipient-info">
+        <span class="to-label">To:</span>
+        <div class="recipient-details">
+          <strong>{{ recruiter.recruiterName || 'Recruiter' }}</strong>
+          <span class="company">at {{ recruiter.companyName }}</span>
+        </div>
+      </div>
+    </div>
+  </h2>
+
+  <div mat-dialog-content class="dialog-content">
+    <form [formGroup]="emailForm" class="email-form">
+      
+      <!-- Template Selection Section -->
+      <div class="template-section">
+        <div class="section-header">
+          <h4>
+            <mat-icon>description</mat-icon>
+            Email Template
+          </h4>
+          <div class="template-actions" *ngIf="selectedTemplate">
+            <button mat-icon-button 
+                    (click)="removeTemplate()" 
+                    matTooltip="Remove template and use custom email">
+              <mat-icon>clear</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="template-selection" *ngIf="!loadingTemplates">
+          <mat-form-field appearance="outline" class="template-select">
+            <mat-label>Choose a template (optional)</mat-label>
+            <mat-select formControlName="templateId" [value]="selectedTemplate?.id">
+              <mat-option [value]="null">
+                <em>No template - Custom email</em>
+              </mat-option>
+              <mat-optgroup *ngFor="let category of getTemplateCategories()" 
+                           [label]="formatCategory(category)">
+                <mat-option *ngFor="let template of getTemplatesByCategory(category)" 
+                           [value]="template.id">
+                  <div class="template-option">
+                    <mat-icon class="template-icon">{{ getCategoryIcon(category) }}</mat-icon>
+                    <div class="template-info">
+                      <div class="template-name">{{ template.name }}</div>
+                      <div class="template-meta">
+                        <span class="usage">{{ template.usageCount || 0 }} uses</span>
+                        <span class="response-rate" *ngIf="template.responseRate">
+                          {{ (template.responseRate * 100).toFixed(1) }}% response rate
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </mat-option>
+              </mat-optgroup>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Selected Template Info -->
+          <div class="selected-template-info" *ngIf="selectedTemplate">
+            <mat-card class="template-info-card">
+              <mat-card-content>
+                <div class="template-header">
+                  <mat-icon [color]="'primary'">{{ getCategoryIcon(selectedTemplate.category) }}</mat-icon>
+                  <div class="template-details">
+                    <h5>{{ selectedTemplate.name }}</h5>
+                    <span class="template-category">{{ formatCategory(selectedTemplate.category) }}</span>
+                  </div>
+                  <div class="template-stats">
+                    <span class="stat">{{ selectedTemplate.usageCount || 0 }} uses</span>
+                    <span class="stat" *ngIf="selectedTemplate.responseRate">
+                      {{ (selectedTemplate.responseRate * 100).toFixed(1) }}% response
+                    </span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+
+        <div class="loading-templates" *ngIf="loadingTemplates">
+          <mat-spinner diameter="30"></mat-spinner>
+          <span>Loading templates...</span>
+        </div>
+      </div>
+
+      <!-- Email Content Section -->
+      <div class="email-content-section">
+        <div class="section-header">
+          <h4>
+            <mat-icon>edit</mat-icon>
+            Email Content
+          </h4>
+          <div class="content-actions">
+            <button mat-icon-button 
+                    type="button"
+                    (click)="togglePreview()" 
+                    [color]="previewMode ? 'primary' : ''"
+                    matTooltip="Toggle preview">
+              <mat-icon>{{ previewMode ? 'edit' : 'preview' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Email Fields -->
+        <div class="email-fields" *ngIf="!previewMode">
+          <!-- To Field -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>To</mat-label>
+            <input matInput 
+                   formControlName="to"
+                   type="email"
+                   readonly>
+            <mat-icon matSuffix>email</mat-icon>
+            <mat-error *ngIf="emailForm.get('to')?.hasError('required')">
+              Email address is required
+            </mat-error>
+            <mat-error *ngIf="emailForm.get('to')?.hasError('email')">
+              Please enter a valid email address
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Subject Field -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Subject</mat-label>
+            <input matInput 
+                   formControlName="subject"
+                   placeholder="Enter email subject">
+            <mat-icon matSuffix>subject</mat-icon>
+            <mat-error *ngIf="emailForm.get('subject')?.hasError('required')">
+              Subject is required
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Body Field -->
+          <mat-form-field appearance="outline" class="full-width body-field">
+            <mat-label>Email Body</mat-label>
+            <textarea matInput 
+                      formControlName="body"
+                      rows="12"
+                      placeholder="Enter your email message">
+            </textarea>
+            <mat-error *ngIf="emailForm.get('body')?.hasError('required')">
+              Email body is required
+            </mat-error>
+          </mat-form-field>
+
+          <!-- Placeholder Help -->
+          <div class="placeholder-help" *ngIf="selectedTemplate">
+            <mat-card class="help-card">
+              <mat-card-content>
+                <div class="help-header">
+                  <mat-icon>info</mat-icon>
+                  <span>Placeholder Replacements</span>
+                </div>
+                <div class="placeholder-list">
+                  <div class="placeholder-item">
+                    <code>{{ '{' }}Company{{ '}' }}</code> → <span>{{ recruiter.companyName }}</span>
+                  </div>
+                  <div class="placeholder-item">
+                    <code>{{ '{' }}Role{{ '}' }}</code> → <span>{{ recruiter.jobRole || '[Role not specified]' }}</span>
+                  </div>
+                  <div class="placeholder-item">
+                    <code>{{ '{' }}RecruiterName{{ '}' }}</code> → <span>{{ recruiter.recruiterName || '[Recruiter name not specified]' }}</span>
+                  </div>
+                  <div class="placeholder-item">
+                    <code>{{ '{' }}MyName{{ '}' }}</code> → <span>[Your Name]</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </div>
+
+        <!-- Preview Mode -->
+        <div class="email-preview" *ngIf="previewMode">
+          <mat-card class="preview-card">
+            <mat-card-header>
+              <mat-card-title>Email Preview</mat-card-title>
+              <mat-card-subtitle>How your email will look</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="preview-content">
+                <div class="preview-header">
+                  <div class="preview-field">
+                    <strong>To:</strong> {{ emailForm.get('to')?.value }}
+                  </div>
+                  <div class="preview-field">
+                    <strong>Subject:</strong> {{ getPreviewSubject() }}
+                  </div>
+                </div>
+                <mat-divider></mat-divider>
+                <div class="preview-body" [innerHTML]="getPreviewBody()"></div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Dialog Actions -->
+  <div mat-dialog-actions class="dialog-actions">
+    <div class="secondary-actions">
+      <button mat-button 
+              type="button"
+              (click)="onSaveDraft()"
+              [disabled]="savingDraft"
+              matTooltip="Save as draft for later">
+        <mat-spinner diameter="16" *ngIf="savingDraft"></mat-spinner>
+        <mat-icon *ngIf="!savingDraft">save</mat-icon>
+        Save Draft
+      </button>
+    </div>
+    
+    <div class="primary-actions">
+      <button mat-button (click)="onCancel()" [disabled]="sending">
+        Cancel
+      </button>
+      <button mat-raised-button 
+              color="primary" 
+              (click)="onSendEmail()"
+              [disabled]="!emailForm.valid || sending">
+        <mat-spinner diameter="16" *ngIf="sending"></mat-spinner>
+        <mat-icon *ngIf="!sending">send</mat-icon>
+        Send Email
+      </button>
+    </div>
+  </div>
+</div>

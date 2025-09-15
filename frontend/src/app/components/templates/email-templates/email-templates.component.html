@@ -1,0 +1,314 @@
+<div class="email-templates-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="title-section">
+      <h1 class="page-title">
+        <mat-icon>email</mat-icon>
+        Email Templates
+      </h1>
+      <p class="page-subtitle">Create and manage reusable email templates for your campaigns</p>
+    </div>
+    
+    <div class="action-buttons">
+      <button mat-raised-button color="primary" (click)="createTemplate()">
+        <mat-icon>add</mat-icon>
+        New Template
+      </button>
+      <button mat-stroked-button (click)="importTemplates()">
+        <mat-icon>upload_file</mat-icon>
+        Import Templates
+      </button>
+      <button mat-stroked-button [matMenuTriggerFor]="sortMenu">
+        <mat-icon>sort</mat-icon>
+        Sort By
+      </button>
+      <mat-menu #sortMenu="matMenu">
+        <button mat-menu-item (click)="sortTemplates('name')">
+          <mat-icon>sort_by_alpha</mat-icon>
+          <span>Name</span>
+        </button>
+        <button mat-menu-item (click)="sortTemplates('created')">
+          <mat-icon>schedule</mat-icon>
+          <span>Date Created</span>
+        </button>
+        <button mat-menu-item (click)="sortTemplates('used')">
+          <mat-icon>trending_up</mat-icon>
+          <span>Most Used</span>
+        </button>
+      </mat-menu>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="stats-section">
+    <div class="stats-grid">
+      <mat-card class="stat-card total-templates">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>email</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ templateStats?.totalTemplates || 0 }}</div>
+              <div class="stat-label">Total Templates</div>
+              <div class="stat-change positive">+3 this week</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card active-templates">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>check_circle</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ templateStats?.activeTemplates || 0 }}</div>
+              <div class="stat-label">Active Templates</div>
+              <div class="stat-change neutral">Currently in use</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="stat-card avg-response">
+        <mat-card-content>
+          <div class="stat-content">
+            <div class="stat-icon">
+              <mat-icon>trending_up</mat-icon>
+            </div>
+            <div class="stat-details">
+              <div class="stat-number">{{ templateStats?.avgResponseRate || 0 }}%</div>
+              <div class="stat-label">Avg Response Rate</div>
+              <div class="stat-change positive">+2.3% improvement</div>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Search and Filter -->
+  <div class="filter-section">
+    <mat-card>
+      <mat-card-content>
+        <div class="filter-controls">
+          <mat-form-field class="search-field" appearance="outline">
+            <mat-label>Search templates...</mat-label>
+            <input matInput [(ngModel)]="searchQuery" (input)="applyFilter()" placeholder="Search by name, subject, or category">
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="selectedCategory" (selectionChange)="applyFilter()">
+              <mat-option value="">All Categories</mat-option>
+              <mat-option value="OUTREACH">Cold Outreach</mat-option>
+              <mat-option value="FOLLOW_UP">Follow-up</mat-option>
+              <mat-option value="REFERRAL">Referral Request</mat-option>
+              <mat-option value="INTERVIEW">Interview</mat-option>
+              <mat-option value="THANK_YOU">Thank You</mat-option>
+            </mat-select>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="selectedStatus" (selectionChange)="applyFilter()">
+              <mat-option value="">All Status</mat-option>
+              <mat-option value="ACTIVE">Active</mat-option>
+              <mat-option value="DRAFT">Draft</mat-option>
+              <mat-option value="ARCHIVED">Archived</mat-option>
+            </mat-select>
+          </mat-form-field>
+          
+          <button mat-icon-button (click)="clearFilters()" matTooltip="Clear filters">
+            <mat-icon>clear</mat-icon>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="loading-content">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading templates...</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon color="warn">error</mat-icon>
+          <h3>Error Loading Templates</h3>
+          <p>{{ error }}</p>
+          <button mat-raised-button color="primary" (click)="loadTemplates()">
+            <mat-icon>refresh</mat-icon>
+            Try Again
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Templates Grid -->
+  <div *ngIf="!loading && !error" class="templates-grid">
+    <div class="template-card" *ngFor="let template of filteredTemplates">
+      <mat-card class="template-item" [ngClass]="getTemplateStatusClass(template.status)">
+        <mat-card-header>
+          <div mat-card-avatar class="template-avatar">
+            <mat-icon [ngClass]="getCategoryClass(template.category)">{{ getCategoryIcon(template.category) }}</mat-icon>
+          </div>
+          <mat-card-title>{{ template.name }}</mat-card-title>
+          <mat-card-subtitle>{{ template.category }} • {{ template.subject }}</mat-card-subtitle>
+          <div class="template-menu">
+            <button mat-icon-button [matMenuTriggerFor]="templateMenu">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #templateMenu="matMenu">
+              <button mat-menu-item (click)="editTemplate(template)">
+                <mat-icon>edit</mat-icon>
+                <span>Edit</span>
+              </button>
+              <button mat-menu-item (click)="duplicateTemplate(template)">
+                <mat-icon>content_copy</mat-icon>
+                <span>Duplicate</span>
+              </button>
+              <button mat-menu-item (click)="previewTemplate(template)">
+                <mat-icon>visibility</mat-icon>
+                <span>Preview</span>
+              </button>
+              <button mat-menu-item (click)="exportTemplate(template)">
+                <mat-icon>download</mat-icon>
+                <span>Export</span>
+              </button>
+              <mat-divider></mat-divider>
+              <button mat-menu-item (click)="archiveTemplate(template.id)" [disabled]="template.status === 'ARCHIVED'">
+                <mat-icon>archive</mat-icon>
+                <span>Archive</span>
+              </button>
+              <button mat-menu-item (click)="deleteTemplate(template.id)" class="delete-action">
+                <mat-icon>delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
+          </div>
+        </mat-card-header>
+        
+        <mat-card-content>
+          <div class="template-preview">
+            <div class="template-content">
+              {{ getPreviewText(template.body) }}
+            </div>
+          </div>
+          
+          <div class="template-stats">
+            <div class="stat-item">
+              <mat-icon>campaign</mat-icon>
+              <span>{{ template.usageCount || 0 }} campaigns</span>
+            </div>
+            <div class="stat-item">
+              <mat-icon>send</mat-icon>
+              <span>{{ template.emailsSent || 0 }} sent</span>
+            </div>
+            <div class="stat-item">
+              <mat-icon>trending_up</mat-icon>
+              <span>{{ template.responseRate || 0 }}% response</span>
+            </div>
+          </div>
+          
+          <div class="template-tags" *ngIf="template.tags && template.tags.length > 0">
+            <mat-chip-set>
+              <mat-chip *ngFor="let tag of template.tags" class="template-tag">
+                {{ tag }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+          
+          <div class="template-meta">
+            <div class="meta-item">
+              <mat-icon>schedule</mat-icon>
+              <span>Created: {{ template.createdAt | date:'MMM dd, yyyy' }}</span>
+            </div>
+            <div class="meta-item" *ngIf="template.lastUsed">
+              <mat-icon>access_time</mat-icon>
+              <span>Last used: {{ template.lastUsed | date:'MMM dd, yyyy' }}</span>
+            </div>
+          </div>
+        </mat-card-content>
+        
+        <mat-card-actions>
+          <button mat-button color="primary" (click)="useTemplate(template)">
+            <mat-icon>play_arrow</mat-icon>
+            Use Template
+          </button>
+          <button mat-button (click)="editTemplate(template)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button (click)="previewTemplate(template)">
+            <mat-icon>visibility</mat-icon>
+            Preview
+          </button>
+        </mat-card-actions>
+        
+        <div class="status-badge" [ngClass]="getTemplateStatusClass(template.status)">
+          {{ template.status }}
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredTemplates.length === 0" class="empty-state">
+      <mat-icon>email</mat-icon>
+      <h3>No templates found</h3>
+      <p *ngIf="searchQuery || selectedCategory || selectedStatus">
+        Try adjusting your filters or search terms.
+      </p>
+      <p *ngIf="!searchQuery && !selectedCategory && !selectedStatus">
+        Get started by creating your first email template.
+      </p>
+      <button mat-raised-button color="primary" (click)="createTemplate()">
+        <mat-icon>add</mat-icon>
+        Create First Template
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="quick-actions" *ngIf="!loading && filteredTemplates.length > 0">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Quick Actions</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="action-buttons">
+          <button mat-raised-button color="primary" (click)="createTemplate()">
+            <mat-icon>add</mat-icon>
+            New Template
+          </button>
+          <button mat-stroked-button (click)="bulkImport()">
+            <mat-icon>upload_file</mat-icon>
+            Bulk Import
+          </button>
+          <button mat-stroked-button (click)="exportAll()">
+            <mat-icon>download</mat-icon>
+            Export All
+          </button>
+          <button mat-stroked-button (click)="viewAnalytics()">
+            <mat-icon>analytics</mat-icon>
+            View Analytics
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

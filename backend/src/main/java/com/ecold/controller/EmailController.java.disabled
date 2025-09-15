@@ -1,0 +1,110 @@
+package com.ecold.controller;
+
+import com.ecold.dto.*;
+import com.ecold.service.EmailCampaignService;
+import com.ecold.service.EmailService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import java.util.List;
+
+@RestController
+@RequestMapping("/emails")
+@RequiredArgsConstructor
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:3000"})
+public class EmailController {
+    
+    private final EmailService emailService;
+    private final EmailCampaignService campaignService;
+    
+    @PostMapping("/test")
+    public ResponseEntity<EmailLogDto> sendTestEmail(@Valid @RequestBody TestEmailRequest request) {
+        EmailLogDto result = emailService.sendTestEmail(
+            request.getRecipientEmail(),
+            request.getSubject(),
+            request.getBody(),
+            request.getResumeId()
+        );
+        return ResponseEntity.ok(result);
+    }
+    
+    @GetMapping("/history")
+    public ResponseEntity<Page<EmailLogDto>> getEmailHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<EmailLogDto> history = emailService.getEmailHistory(page, size);
+        return ResponseEntity.ok(history);
+    }
+    
+    @PostMapping("/{emailLogId}/retry")
+    public ResponseEntity<EmailLogDto> retryFailedEmail(@PathVariable Long emailLogId) {
+        EmailLogDto result = emailService.retryFailedEmail(emailLogId);
+        return ResponseEntity.ok(result);
+    }
+    
+    @GetMapping("/validate-connection")
+    public ResponseEntity<Boolean> validateEmailConnection() {
+        Boolean isValid = emailService.validateEmailConnection();
+        return ResponseEntity.ok(isValid);
+    }
+    
+    // Campaign endpoints
+    @PostMapping("/campaigns")
+    public ResponseEntity<EmailCampaignDto> createCampaign(@Valid @RequestBody CreateCampaignRequest request) {
+        EmailCampaignDto campaign = campaignService.createCampaign(request);
+        return ResponseEntity.ok(campaign);
+    }
+    
+    @GetMapping("/campaigns")
+    public ResponseEntity<Page<EmailCampaignDto>> getCampaigns(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status) {
+        Page<EmailCampaignDto> campaigns = campaignService.getCampaigns(page, size, status);
+        return ResponseEntity.ok(campaigns);
+    }
+    
+    @PutMapping("/campaigns/{id}")
+    public ResponseEntity<EmailCampaignDto> updateCampaign(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateCampaignRequest request) {
+        EmailCampaignDto campaign = campaignService.updateCampaign(id, request);
+        return ResponseEntity.ok(campaign);
+    }
+    
+    @PostMapping("/campaigns/{id}/start")
+    public ResponseEntity<EmailCampaignDto> startCampaign(@PathVariable Long id) {
+        EmailCampaignDto campaign = campaignService.startCampaign(id);
+        return ResponseEntity.ok(campaign);
+    }
+    
+    @PostMapping("/campaigns/{id}/pause")
+    public ResponseEntity<EmailCampaignDto> pauseCampaign(@PathVariable Long id) {
+        EmailCampaignDto campaign = campaignService.pauseCampaign(id);
+        return ResponseEntity.ok(campaign);
+    }
+    
+    @PostMapping("/campaigns/{id}/cancel")
+    public ResponseEntity<EmailCampaignDto> cancelCampaign(@PathVariable Long id) {
+        EmailCampaignDto campaign = campaignService.cancelCampaign(id);
+        return ResponseEntity.ok(campaign);
+    }
+    
+    @GetMapping("/campaigns/{id}/logs")
+    public ResponseEntity<Page<EmailLogDto>> getCampaignLogs(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<EmailLogDto> logs = campaignService.getCampaignLogs(id, page, size);
+        return ResponseEntity.ok(logs);
+    }
+    
+    @GetMapping("/stats")
+    public ResponseEntity<EmailStatsDto> getEmailStats() {
+        EmailStatsDto stats = emailService.getEmailStats();
+        return ResponseEntity.ok(stats);
+    }
+}

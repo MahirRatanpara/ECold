@@ -1,0 +1,446 @@
+.recruiter-list-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+// Infinite scroll styles
+.loading-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  
+  p {
+    margin-top: 12px;
+    color: #666;
+    font-size: 14px;
+  }
+}
+
+.end-of-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: #4caf50;
+  
+  mat-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+  }
+}
+
+.load-more-hint {
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+}
+
+// Header Section
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 20px;
+
+  .title-section {
+    flex: 1;
+
+    .page-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 8px 0;
+      font-size: 2rem;
+      font-weight: 400;
+      color: #333;
+
+      mat-icon {
+        font-size: 2rem;
+        width: 2rem;
+        height: 2rem;
+        color: #667eea;
+      }
+    }
+
+    .page-subtitle {
+      color: #666;
+      margin: 0;
+      font-size: 1rem;
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    button {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border-radius: 8px;
+      font-weight: 500;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      }
+
+      mat-icon {
+        margin-right: 8px;
+      }
+    }
+  }
+}
+
+// Filter Section
+.filter-section {
+  margin-bottom: 24px;
+
+  mat-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+
+    .filter-controls {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 16px;
+      align-items: center;
+
+      .search-field {
+        grid-column: 1;
+      }
+
+      mat-form-field {
+        width: 100%;
+      }
+
+      button[mat-icon-button] {
+        margin-left: 8px;
+      }
+    }
+  }
+}
+
+// Loading State
+.loading-container, .error-container {
+  margin-bottom: 24px;
+
+  mat-card {
+    border-radius: 12px;
+    text-align: center;
+
+    .loading-content, .error-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 40px 20px;
+
+      mat-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+      }
+
+      h3 {
+        margin: 0;
+        color: #333;
+      }
+
+      p {
+        margin: 0;
+        color: #666;
+      }
+    }
+  }
+}
+
+// Table Container
+.table-container {
+  mat-card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 0 16px 0;
+      border-bottom: 1px solid #e0e0e0;
+      margin-bottom: 16px;
+
+      .results-count {
+        color: #666;
+        font-size: 0.9rem;
+      }
+
+      .bulk-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .selected-count {
+          background: #e3f2fd;
+          color: #1976d2;
+          padding: 4px 12px;
+          border-radius: 16px;
+          font-size: 0.8rem;
+          font-weight: 500;
+        }
+      }
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+  }
+}
+
+// Table Styles
+.recruiters-table {
+  width: 100%;
+  background: white;
+
+  .mat-header-cell {
+    background: #f8f9fa;
+    color: #333;
+    font-weight: 600;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 16px 12px;
+  }
+
+  .mat-cell {
+    padding: 16px 12px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .mat-row:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+  }
+
+  // Name Cell
+  .name-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .avatar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      color: white;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .name-info {
+      .name {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 2px;
+      }
+
+      .email {
+        font-size: 0.85rem;
+        color: #666;
+      }
+    }
+  }
+
+  // Company Cell
+  .company-cell {
+    .company-name {
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 2px;
+    }
+
+    .job-role {
+      font-size: 0.85rem;
+      color: #666;
+    }
+  }
+
+  // Status Chips
+  mat-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 12px;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    &.status-pending {
+      background-color: #fff3e0;
+      color: #f57c00;
+    }
+
+    &.status-contacted {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    &.status-responded {
+      background-color: #e8f5e8;
+      color: #388e3c;
+    }
+
+    &.status-rejected {
+      background-color: #ffebee;
+      color: #d32f2f;
+    }
+
+    &.status-hired {
+      background-color: #e8f5e8;
+      color: #2e7d32;
+    }
+
+    &.status-unknown {
+      background-color: #f5f5f5;
+      color: #666;
+    }
+  }
+
+  // Date Cell
+  .date-cell {
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  // LinkedIn Link
+  .no-link {
+    color: #ccc;
+    font-size: 1.2rem;
+  }
+
+  // Action Buttons
+  .action-buttons {
+    display: flex;
+    gap: 4px;
+
+    button[mat-icon-button] {
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: rgba(0,0,0,0.04);
+      }
+    }
+
+    .delete-action {
+      color: #f44336;
+
+      mat-icon {
+        color: #f44336;
+      }
+    }
+  }
+}
+
+// Empty State
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+
+  mat-icon {
+    font-size: 80px;
+    width: 80px;
+    height: 80px;
+    color: #ccc;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    margin: 0 0 8px 0;
+    color: #666;
+  }
+
+  p {
+    margin: 0 0 24px 0;
+    color: #999;
+  }
+
+  button {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+}
+
+// Responsive Design
+@media (max-width: 1200px) {
+  .filter-section {
+    mat-card .filter-controls {
+      grid-template-columns: 1fr;
+      gap: 12px;
+
+      .search-field {
+        grid-column: 1;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .recruiter-list-container {
+    padding: 16px;
+  }
+
+  .header-section {
+    flex-direction: column;
+    align-items: stretch;
+
+    .action-buttons {
+      justify-content: stretch;
+
+      button {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+  }
+
+  .table-container .table-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .bulk-actions {
+      justify-content: space-between;
+    }
+  }
+
+  // Hide some columns on mobile
+  .recruiters-table {
+    .mat-column-linkedinProfile,
+    .mat-column-lastContactedAt {
+      display: none;
+    }
+  }
+}

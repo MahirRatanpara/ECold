@@ -1,0 +1,150 @@
+<!-- Dashboard Content Only -->
+<div class="dashboard-header">
+  <h1>Dashboard Overview</h1>
+  <button mat-raised-button color="primary" (click)="refreshData()">
+    <mat-icon>refresh</mat-icon>
+    Refresh
+  </button>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+  <mat-card class="stat-card recruiters-card">
+    <mat-card-content>
+      <div class="stat-content">
+        <div class="stat-icon">
+          <mat-icon>people</mat-icon>
+        </div>
+        <div class="stat-details">
+          <div class="stat-number">{{ dashboardStats?.totalRecruiters || 0 }}</div>
+          <div class="stat-label">Total Recruiters</div>
+          <div class="stat-change positive">+5 this week</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card emails-card">
+    <mat-card-content>
+      <div class="stat-content">
+        <div class="stat-icon">
+          <mat-icon>send</mat-icon>
+        </div>
+        <div class="stat-details">
+          <div class="stat-number">{{ dashboardStats?.emailsSent || 0 }}</div>
+          <div class="stat-label">Emails Sent</div>
+          <div class="stat-change positive">+12 today</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card response-card">
+    <mat-card-content>
+      <div class="stat-content">
+        <div class="stat-icon">
+          <mat-icon>trending_up</mat-icon>
+        </div>
+        <div class="stat-details">
+          <div class="stat-number">{{ dashboardStats?.responseRate || 0 }}%</div>
+          <div class="stat-label">Response Rate</div>
+          <div class="stat-change positive">+2.1% vs last month</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stat-card campaigns-card">
+    <mat-card-content>
+      <div class="stat-content">
+        <div class="stat-icon">
+          <mat-icon>campaign</mat-icon>
+        </div>
+        <div class="stat-details">
+          <div class="stat-number">{{ dashboardStats?.activeCampaigns || 0 }}</div>
+          <div class="stat-label">Active Campaigns</div>
+          <div class="stat-change neutral">2 scheduled</div>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Recent Activity -->
+<div class="activity-section">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Recent Activity</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="activity-tabs">
+        <mat-tab-group>
+          <mat-tab label="Recent Emails">
+            <div class="recent-emails">
+              <mat-list *ngIf="recentEmails?.length; else noEmails">
+                <mat-list-item *ngFor="let email of recentEmails">
+                  <mat-icon mat-list-icon [ngClass]="getEmailStatusClass(email.status)">
+                    {{ getEmailStatusIcon(email.status) }}
+                  </mat-icon>
+                  <div mat-line>{{ email.recipientEmail }}</div>
+                  <div mat-line>{{ email.subject }}</div>
+                  <span class="email-date">{{ email.sentAt | date:'short' }}</span>
+                </mat-list-item>
+              </mat-list>
+              <ng-template #noEmails>
+                <p>No recent emails found.</p>
+              </ng-template>
+            </div>
+          </mat-tab>
+          
+          <mat-tab label="Inbox Highlights">
+            <div class="inbox-highlights">
+              <mat-list *ngIf="inboxHighlights?.length; else noInbox">
+                <mat-list-item *ngFor="let email of inboxHighlights">
+                  <mat-icon mat-list-icon [ngClass]="getCategoryClass(email.category)">
+                    {{ getCategoryIcon(email.category) }}
+                  </mat-icon>
+                  <div mat-line>{{ email.senderEmail }}</div>
+                  <div mat-line>{{ email.subject }}</div>
+                  <span class="email-date">{{ email.receivedAt | date:'short' }}</span>
+                </mat-list-item>
+              </mat-list>
+              <ng-template #noInbox>
+                <p>No recent inbox activity.</p>
+              </ng-template>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Quick Actions</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="action-buttons">
+        <button mat-raised-button color="primary" routerLink="/campaigns">
+          <mat-icon>add</mat-icon>
+          New Campaign
+        </button>
+        <button mat-raised-button color="accent" routerLink="/recruiters">
+          <mat-icon>upload_file</mat-icon>
+          Import Recruiters
+        </button>
+        <button mat-raised-button routerLink="/templates">
+          <mat-icon>email</mat-icon>
+          Manage Templates
+        </button>
+        <button mat-raised-button (click)="scanInbox()">
+          <mat-icon>sync</mat-icon>
+          Scan Inbox
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

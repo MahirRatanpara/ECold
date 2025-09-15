@@ -1,0 +1,74 @@
+.recruiter-edit-dialog {
+  min-width: 600px;
+  max-width: 800px;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-weight: 500;
+    color: #333;
+
+    mat-icon {
+      color: #1976d2;
+    }
+  }
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+
+  .form-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+
+    .full-width {
+      flex: 1;
+    }
+
+    .half-width {
+      flex: 0.5;
+    }
+  }
+
+  mat-form-field {
+    mat-icon[matSuffix] {
+      color: rgba(0, 0, 0, 0.54);
+    }
+  }
+
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .recruiter-edit-dialog {
+    min-width: 90vw;
+    max-width: 90vw;
+  }
+
+  .edit-form .form-row {
+    flex-direction: column;
+    gap: 8px;
+
+    .half-width {
+      flex: 1;
+    }
+  }
+}

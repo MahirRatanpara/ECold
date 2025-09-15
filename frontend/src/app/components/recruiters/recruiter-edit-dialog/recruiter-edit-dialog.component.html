@@ -1,0 +1,92 @@
+<div class="recruiter-edit-dialog">
+  <h2 mat-dialog-title>
+    <mat-icon>{{ isEditMode ? 'edit' : 'add' }}</mat-icon>
+    {{ isEditMode ? 'Edit Recruiter' : 'Add New Recruiter' }}
+  </h2>
+
+  <div mat-dialog-content>
+    <form [formGroup]="editForm" class="edit-form">
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email Address</mat-label>
+          <input matInput formControlName="email" type="email" placeholder="recruiter@company.com">
+          <mat-icon matSuffix>email</mat-icon>
+          <mat-error *ngIf="editForm.get('email')?.invalid && editForm.get('email')?.touched">
+            {{ getErrorMessage('email') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Recruiter Name</mat-label>
+          <input matInput formControlName="recruiterName" placeholder="John Doe">
+          <mat-icon matSuffix>person</mat-icon>
+          <mat-error *ngIf="editForm.get('recruiterName')?.invalid && editForm.get('recruiterName')?.touched">
+            {{ getErrorMessage('recruiterName') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Company Name</mat-label>
+          <input matInput formControlName="companyName" placeholder="Tech Corp">
+          <mat-icon matSuffix>business</mat-icon>
+          <mat-error *ngIf="editForm.get('companyName')?.invalid && editForm.get('companyName')?.touched">
+            {{ getErrorMessage('companyName') }}
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="half-width">
+          <mat-label>Job Role</mat-label>
+          <input matInput formControlName="jobRole" placeholder="Senior Developer">
+          <mat-icon matSuffix>work</mat-icon>
+          <mat-error *ngIf="editForm.get('jobRole')?.invalid && editForm.get('jobRole')?.touched">
+            {{ getErrorMessage('jobRole') }}
+          </mat-error>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>LinkedIn Profile</mat-label>
+          <input matInput formControlName="linkedinProfile" placeholder="https://linkedin.com/in/username">
+          <mat-icon matSuffix>link</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option *ngFor="let status of statuses" [value]="status.value">
+              {{ status.label }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matSuffix>flag</mat-icon>
+        </mat-form-field>
+      </div>
+
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Notes</mat-label>
+          <textarea matInput formControlName="notes" rows="4" placeholder="Add any notes about this recruiter..."></textarea>
+          <mat-icon matSuffix>note</mat-icon>
+        </mat-form-field>
+      </div>
+    </form>
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()" [disabled]="loading">Cancel</button>
+    <button mat-raised-button 
+            color="primary" 
+            (click)="onSubmit()" 
+            [disabled]="loading || editForm.invalid">
+      <mat-icon *ngIf="loading" class="spin">sync</mat-icon>
+      <mat-icon *ngIf="!loading">{{ isEditMode ? 'update' : 'add' }}</mat-icon>
+      {{ loading ? 'Saving...' : (isEditMode ? 'Update' : 'Create') }}
+    </button>
+  </div>
+</div>

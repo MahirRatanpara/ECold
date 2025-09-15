@@ -1,0 +1,114 @@
+<div class="recruiter-view-dialog">
+  <h2 mat-dialog-title>
+    <div class="header-content">
+      <div class="recruiter-info">
+        <div class="avatar">
+          <mat-icon>person</mat-icon>
+        </div>
+        <div class="basic-info">
+          <h3>{{ recruiter.recruiterName || 'Unknown Name' }}</h3>
+          <p class="company">{{ recruiter.companyName }}</p>
+        </div>
+      </div>
+      <mat-chip [ngClass]="getStatusClass(recruiter.status)" [color]="getStatusColor(recruiter.status)">
+        <mat-icon>{{ getStatusIcon(recruiter.status) }}</mat-icon>
+        {{ recruiter.status }}
+      </mat-chip>
+    </div>
+  </h2>
+
+  <div mat-dialog-content>
+    <div class="details-content">
+      <div class="info-section">
+        <h4><mat-icon>contact_mail</mat-icon> Contact Information</h4>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Email</label>
+            <div class="value">
+              <a [href]="'mailto:' + recruiter.email" class="email-link">
+                <mat-icon>email</mat-icon>
+                {{ recruiter.email }}
+              </a>
+            </div>
+          </div>
+          
+          <div class="info-item" *ngIf="recruiter.linkedinProfile">
+            <label>LinkedIn</label>
+            <div class="value">
+              <a [href]="recruiter.linkedinProfile" target="_blank" class="linkedin-link">
+                <mat-icon>link</mat-icon>
+                View Profile
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h4><mat-icon>business</mat-icon> Professional Details</h4>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Company</label>
+            <div class="value">{{ recruiter.companyName }}</div>
+          </div>
+          
+          <div class="info-item">
+            <label>Job Role</label>
+            <div class="value">{{ recruiter.jobRole }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section">
+        <h4><mat-icon>schedule</mat-icon> Timeline</h4>
+        <div class="info-grid">
+          <div class="info-item">
+            <label>Last Contacted</label>
+            <div class="value">
+              {{ recruiter.lastContactedAt | date:'MMM dd, yyyy HH:mm' || 'Never' }}
+            </div>
+          </div>
+          
+          <div class="info-item">
+            <label>Added On</label>
+            <div class="value">
+              {{ recruiter.createdAt | date:'MMM dd, yyyy HH:mm' }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-section" *ngIf="recruiter.notes">
+        <h4><mat-icon>note</mat-icon> Notes</h4>
+        <div class="notes-content">
+          <p>{{ recruiter.notes }}</p>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <h4><mat-icon>flash_on</mat-icon> Quick Actions</h4>
+        <div class="action-buttons">
+          <button mat-raised-button color="primary" (click)="sendEmail()">
+            <mat-icon>email</mat-icon>
+            Send Email
+          </button>
+          
+          <button mat-stroked-button 
+                  *ngIf="recruiter.linkedinProfile" 
+                  (click)="openLinkedIn()">
+            <mat-icon>link</mat-icon>
+            Open LinkedIn
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div mat-dialog-actions align="end">
+    <button mat-button (click)="onClose()">Close</button>
+    <button mat-raised-button color="primary" (click)="onEdit()">
+      <mat-icon>edit</mat-icon>
+      Edit
+    </button>
+  </div>
+</div>
