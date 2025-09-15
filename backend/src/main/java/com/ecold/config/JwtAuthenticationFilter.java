@@ -27,12 +27,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRepository userRepository;
     
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                   FilterChain filterChain) throws ServletException, IOException {
-        
+
+        String requestURI = request.getRequestURI();
+        System.out.println("Request URI: " + requestURI);
+
+        // Skip JWT authentication for OAuth endpoints
+        if (shouldSkipFilter(requestURI)) {
+            System.out.println("✅ Skipping JWT filter for endpoint: " + requestURI);
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        System.out.println("🔍 Processing JWT filter for endpoint: " + requestURI);
+
         try {
             String jwt = getJwtFromRequest(request);
-            System.out.println("Request URI: " + request.getRequestURI());
             System.out.println("JWT from request: " + (jwt != null ? "Present (length: " + jwt.length() + ")" : "Not present"));
             
             if (StringUtils.hasText(jwt)) {
@@ -80,5 +91,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    private boolean shouldSkipFilter(String requestURI) {
+        // Skip JWT authentication for these endpoints
+        return requestURI.startsWith("/api/auth/") ||
+               requestURI.startsWith("/api/actuator/") ||
+               requestURI.startsWith("/api/email-templates/");
     }
 }

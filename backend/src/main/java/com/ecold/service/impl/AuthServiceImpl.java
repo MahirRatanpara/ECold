@@ -10,17 +10,20 @@ import com.ecold.exception.AuthenticationException;
 import com.ecold.exception.UserAlreadyExistsException;
 import com.ecold.repository.UserRepository;
 import com.ecold.service.AuthService;
+import com.ecold.service.GoogleOAuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-    
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final GoogleOAuthService googleOAuthService;
 
     @Override
     public UserDto signup(SignupRequest signupRequest) {
@@ -82,8 +85,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String getGoogleAuthUrl() {
-        // TODO: Implement Google OAuth URL generation
-        return "https://accounts.google.com/oauth2/auth";
+        return googleOAuthService.getAuthorizationUrl();
     }
 
     @Override
@@ -94,10 +96,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse processGoogleCallback(String code) {
-        // TODO: Implement Google OAuth callback processing
-        LoginResponse response = new LoginResponse();
-        response.setAccessToken("mock-token");
-        return response;
+        return googleOAuthService.processCallback(code);
     }
 
     @Override
@@ -110,8 +109,18 @@ public class AuthServiceImpl implements AuthService {
     
     @Override
     public UserDto getCurrentUser() {
-        // TODO: Implement get current user logic
-        return new UserDto();
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new AuthenticationException("User not found"));
+
+        UserDto userDto = new UserDto();
+        userDto.setId(user.getId());
+        userDto.setEmail(user.getEmail());
+        userDto.setName(user.getName());
+        userDto.setProvider(user.getProvider());
+        userDto.setCreatedAt(user.getCreatedAt());
+
+        return userDto;
     }
     
     @Override

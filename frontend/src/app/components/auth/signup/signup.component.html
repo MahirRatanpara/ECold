@@ -156,14 +156,13 @@
           </div>
           
           <div class="oauth-buttons">
-            <button type="button" mat-stroked-button class="oauth-button google-button">
-              <mat-icon class="oauth-icon">account_circle</mat-icon>
+            <button type="button"
+                    mat-stroked-button
+                    class="oauth-button google-button"
+                    (click)="signupWithGoogle()"
+                    [disabled]="isLoading">
+              <img src="assets/google-icon.svg" alt="Google" class="oauth-icon">
               <span>Sign up with Google</span>
-            </button>
-            
-            <button type="button" mat-stroked-button class="oauth-button microsoft-button">
-              <mat-icon class="oauth-icon">business</mat-icon>
-              <span>Sign up with Microsoft</span>
             </button>
           </div>
         </div>

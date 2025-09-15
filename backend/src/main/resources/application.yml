@@ -22,47 +22,41 @@ spring:
       enabled: true
       path: /h2-console
   
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: "ecoldapplication@gmail.com"
-    password:
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-  
-# Temporarily disabled OAuth2 configuration
-#  security:
-#    oauth2:
-#      client:
-#        registration:
-#          google:
-#            client-id: ${GOOGLE_CLIENT_ID:}
-#            client-secret: ${GOOGLE_CLIENT_SECRET:}
-#            scope: 
-#              - openid
-#              - profile
-#              - email
-#              - https://www.googleapis.com/auth/gmail.readonly
-#              - https://www.googleapis.com/auth/gmail.send
-#          microsoft:
-#            client-id: ${MICROSOFT_CLIENT_ID:}
-#            client-secret: ${MICROSOFT_CLIENT_SECRET:}
-#            scope:
-#              - openid
-#              - profile
-#              - email
-#              - https://graph.microsoft.com/mail.read
-#              - https://graph.microsoft.com/mail.send
-#        provider:
-#          microsoft:
-#            authorization-uri: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
-#            token-uri: https://login.microsoftonline.com/common/oauth2/v2.0/token
-#            user-info-uri: https://graph.microsoft.com/v1.0/me
-#            user-name-attribute: id
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://www.googleapis.com/auth/gmail.readonly
+              - https://www.googleapis.com/auth/gmail.send
+            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:4200/auth/google/callback}
+          microsoft:
+            client-id: ${MICROSOFT_CLIENT_ID:}
+            client-secret: ${MICROSOFT_CLIENT_SECRET:}
+            scope:
+              - openid
+              - profile
+              - email
+              - https://graph.microsoft.com/mail.read
+              - https://graph.microsoft.com/mail.send
+            redirect-uri: ${MICROSOFT_REDIRECT_URI:http://localhost:4200/auth/microsoft/callback}
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
+            user-name-attribute: email
+          microsoft:
+            authorization-uri: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+            token-uri: https://login.microsoftonline.com/common/oauth2/v2.0/token
+            user-info-uri: https://graph.microsoft.com/v1.0/me
+            user-name-attribute: id
 
   batch:
     job:

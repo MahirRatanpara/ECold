@@ -98,16 +98,11 @@
             <version>1.43.3</version>
         </dependency>
         
-        <!-- JavaMail -->
+        <!-- Jakarta Mail (for Spring Boot 3.x compatibility) -->
         <dependency>
-            <groupId>javax.mail</groupId>
-            <artifactId>javax.mail-api</artifactId>
-            <version>1.6.2</version>
-        </dependency>
-        <dependency>
-            <groupId>com.sun.mail</groupId>
-            <artifactId>javax.mail</artifactId>
-            <version>1.6.2</version>
+            <groupId>org.eclipse.angus</groupId>
+            <artifactId>angus-mail</artifactId>
+            <version>2.0.1</version>
         </dependency>
         
         <!-- Microsoft Graph API -->
