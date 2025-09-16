@@ -1,9 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { AuthService, LoginResponse } from '../../../services/auth.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -11,58 +9,19 @@ import { MatSnackBar } from '@angular/material/snack-bar';
   styleUrls: ['./login.component.scss']
 })
 export class LoginComponent implements OnInit {
-  loginForm!: FormGroup;
-  hidePassword = true;
   isLoading = false;
   errorMessage = '';
 
   constructor(
-    private formBuilder: FormBuilder,
     private authService: AuthService,
-    private router: Router,
-    private snackBar: MatSnackBar
+    private router: Router
   ) {}
 
   ngOnInit(): void {
-    this.initializeForm();
-  }
-
-  private initializeForm(): void {
-    this.loginForm = this.formBuilder.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      rememberMe: [false]
-    });
-  }
-
-  onSubmit(): void {
-    if (this.loginForm.valid) {
-      this.isLoading = true;
-      this.errorMessage = '';
-
-      const credentials = {
-        email: this.loginForm.value.email,
-        password: this.loginForm.value.password,
-        rememberMe: this.loginForm.value.rememberMe
-      };
-
-      this.authService.login(credentials).subscribe({
-        next: (response: LoginResponse) => {
-          this.isLoading = false;
-          this.snackBar.open('Login successful!', 'Close', {
-            duration: 3000,
-            horizontalPosition: 'right',
-            verticalPosition: 'top'
-          });
-          this.router.navigate(['/dashboard']);
-        },
-        error: (error: HttpErrorResponse) => {
-          this.isLoading = false;
-          this.errorMessage = this.getErrorMessage(error);
-        }
-      });
-    } else {
-      this.markFormGroupTouched();
+    // If user is already authenticated, redirect to dashboard
+    if (this.authService.isAuthenticated) {
+      this.router.navigate(['/dashboard']);
+      return;
     }
   }
 
@@ -82,12 +41,6 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  private markFormGroupTouched(): void {
-    Object.keys(this.loginForm.controls).forEach(key => {
-      const control = this.loginForm.get(key);
-      control?.markAsTouched();
-    });
-  }
 
   private getErrorMessage(error: HttpErrorResponse): string {
     // Handle different error scenarios with user-friendly messages

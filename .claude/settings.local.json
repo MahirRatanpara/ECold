@@ -7,7 +7,9 @@
       "Bash(ping:*)",
       "Bash(taskkill:*)",
       "Bash(npm run build:*)",
-      "Bash(dir \"C:\\Users\\mahir\\Desktop\\PersonalProjects\\ECold\\frontend\\src\\app\\components\\templates\\template-edit-dialog\")"
+      "Bash(dir \"C:\\Users\\mahir\\Desktop\\PersonalProjects\\ECold\\frontend\\src\\app\\components\\templates\\template-edit-dialog\")",
+      "Bash(dir \"C:\\Users\\mahir\\Desktop\\PersonalProjects\\ECold\\frontend\\src\\assets\")",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
