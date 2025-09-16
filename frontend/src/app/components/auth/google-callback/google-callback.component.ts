@@ -81,6 +81,15 @@ export class GoogleCallbackComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // If user is already authenticated, redirect immediately
+    if (this.authService.isAuthenticated) {
+      this.loadingMessage = 'Already signed in! Redirecting...';
+      setTimeout(() => {
+        this.router.navigate(['/dashboard']);
+      }, 500);
+      return;
+    }
+
     this.route.queryParams.subscribe(params => {
       const code = params['code'];
       const error = params['error'];
@@ -99,24 +108,30 @@ export class GoogleCallbackComponent implements OnInit {
   }
 
   private processGoogleCallback(code: string): void {
-    this.loadingMessage = 'Exchanging authorization code...';
+    this.loadingMessage = 'Verifying your Google account...';
+
+    // Clear any existing error state
+    this.errorMessage = '';
 
     this.authService.processGoogleCallback(code).subscribe({
       next: (response: LoginResponse) => {
-        this.loadingMessage = 'Sign-in successful! Redirecting...';
+        this.loadingMessage = 'Sign-in successful! Redirecting to dashboard...';
 
-        this.snackBar.open('Successfully signed in with Google!', 'Close', {
+        // Show success message
+        this.snackBar.open('Welcome! Successfully signed in with Google.', 'Close', {
           duration: 3000,
           horizontalPosition: 'right',
-          verticalPosition: 'top'
+          verticalPosition: 'top',
+          panelClass: ['success-snackbar']
         });
 
-        // Small delay to show success message
+        // Redirect to dashboard
         setTimeout(() => {
           this.router.navigate(['/dashboard']);
-        }, 1000);
+        }, 800);
       },
       error: (error: HttpErrorResponse) => {
+        this.loadingMessage = '';
         this.handleError(this.getErrorMessage(error));
       }
     });
