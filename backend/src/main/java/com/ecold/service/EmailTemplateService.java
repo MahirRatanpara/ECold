@@ -3,6 +3,7 @@ package com.ecold.service;
 import com.ecold.dto.EmailTemplateDto;
 import com.ecold.entity.EmailTemplate;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;

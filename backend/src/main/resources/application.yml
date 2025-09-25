@@ -131,4 +131,22 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:3000}
 
+gmail:
+  api:
+    enabled: ${GMAIL_API_ENABLED:true}
+    client-id: ${GOOGLE_CLIENT_ID:}
+    client-secret: ${GOOGLE_CLIENT_SECRET:}
+    redirect-uri: ${GMAIL_REDIRECT_URI:http://localhost:8080/api/auth/google/callback}
+    scopes: ${GMAIL_SCOPES:https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.modify}
+
+templates:
+  follow-up:
+    auto-assign: ${TEMPLATES_FOLLOWUP_AUTO_ASSIGN:true}
+    delay-days: ${TEMPLATES_FOLLOWUP_DELAY_DAYS:7}
+
+scheduling:
+  email:
+    enabled: ${SCHEDULING_EMAIL_ENABLED:true}
+    thread-pool-size: ${SCHEDULING_THREAD_POOL_SIZE:5}
+
 

@@ -82,8 +82,12 @@ export class RecruiterService {
     return this.http.get<RecruiterContact>(`${environment.apiUrl}/recruiters/${id}`);
   }
 
-  createRecruiter(recruiter: Partial<RecruiterContact>): Observable<RecruiterContact> {
-    return this.http.post<RecruiterContact>(`${environment.apiUrl}/recruiters`, recruiter);
+  createRecruiter(recruiter: Partial<RecruiterContact>, templateId?: number): Observable<RecruiterContact> {
+    let url = `${environment.apiUrl}/recruiters`;
+    if (templateId) {
+      url += `?templateId=${templateId}`;
+    }
+    return this.http.post<RecruiterContact>(url, recruiter);
   }
 
   updateRecruiter(id: number, recruiter: Partial<RecruiterContact>): Observable<RecruiterContact> {
@@ -94,9 +98,12 @@ export class RecruiterService {
     return this.http.delete<void>(`${environment.apiUrl}/recruiters/${id}`);
   }
 
-  importRecruiters(file: File): Observable<any> {
+  importRecruiters(file: File, templateId?: number): Observable<any> {
     const formData = new FormData();
     formData.append('file', file);
+    if (templateId) {
+      formData.append('templateId', templateId.toString());
+    }
     return this.http.post(`${environment.apiUrl}/recruiters/import/csv`, formData);
   }
 

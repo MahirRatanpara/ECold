@@ -5,10 +5,12 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { EmailTemplateService, EmailTemplate } from '../../services/email-template.service';
 import { EmailSendService, EmailSendRequest, EmailSendResponse } from '../../services/email-send.service';
 import { RecruiterContact } from '../../services/recruiter.service';
+import { RecruiterTemplateAssignmentService } from '../../services/recruiter-template-assignment.service';
 
 export interface EmailComposeData {
   recruiter: RecruiterContact;
   defaultTemplate?: EmailTemplate;
+  assignmentId?: number; // For template-based recruiters
 }
 
 export interface EmailComposeResult {
@@ -44,12 +46,16 @@ export class EmailComposeDialogComponent implements OnInit {
   sending = false;
   savingDraft = false;
 
+  // File attachment
+  selectedFile: File | null = null;
+
   constructor(
     public dialogRef: MatDialogRef<EmailComposeDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: EmailComposeData,
     private fb: FormBuilder,
     private templateService: EmailTemplateService,
     private emailSendService: EmailSendService,
+    private templateAssignmentService: RecruiterTemplateAssignmentService,
     private snackBar: MatSnackBar
   ) {
     this.recruiter = data.recruiter;
@@ -58,7 +64,11 @@ export class EmailComposeDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTemplates();
-    this.setupDefaultEmail();
+
+    // Only setup default email if no default template is provided
+    if (!this.data.defaultTemplate) {
+      this.setupDefaultEmail();
+    }
   }
 
   private initializeForm(): void {
@@ -83,12 +93,17 @@ export class EmailComposeDialogComponent implements OnInit {
       next: (templates) => {
         this.templates = templates;
         this.loadingTemplates = false;
-        
+
         // Apply default template if provided
         if (this.data.defaultTemplate) {
           const defaultTemplate = this.templates.find(t => t.id === this.data.defaultTemplate?.id);
-          if (defaultTemplate) {
+          if (defaultTemplate && defaultTemplate.id) {
+            // Set both the form control and directly apply the template
             this.emailForm.patchValue({ templateId: defaultTemplate.id });
+            this.applyTemplate(defaultTemplate.id);
+          } else {
+            // Default template not found in active templates, set up default email
+            this.setupDefaultEmail();
           }
         }
       },
@@ -100,6 +115,9 @@ export class EmailComposeDialogComponent implements OnInit {
           horizontalPosition: 'right',
           verticalPosition: 'top'
         });
+
+        // Set up default email if templates failed to load
+        this.setupDefaultEmail();
       }
     });
   }
@@ -108,10 +126,10 @@ export class EmailComposeDialogComponent implements OnInit {
     // Set default subject and body if no template is selected
     const defaultSubject = `Following up on opportunities at ${this.recruiter.companyName}`;
     const defaultBody = this.getDefaultEmailBody();
-    
+
     this.originalSubject = defaultSubject;
     this.originalBody = defaultBody;
-    
+
     this.emailForm.patchValue({
       subject: defaultSubject,
       body: defaultBody
@@ -142,11 +160,15 @@ Best regards,
     if (!template) return;
 
     this.selectedTemplate = template;
-    
+
     // Process placeholders in subject and body
     const processedSubject = this.processPlaceholders(template.subject);
     const processedBody = this.processPlaceholders(template.body);
-    
+
+    // Set these as the original values for fallback purposes
+    this.originalSubject = processedSubject;
+    this.originalBody = processedBody;
+
     this.emailForm.patchValue({
       subject: processedSubject,
       body: processedBody
@@ -184,6 +206,17 @@ Best regards,
 
   removeTemplate(): void {
     this.selectedTemplate = null;
+    this.emailForm.patchValue({
+      templateId: null,
+      subject: this.originalSubject,
+      body: this.originalBody
+    });
+  }
+
+  clearPresetTemplate(): void {
+    // Clear the preset template and allow manual template selection
+    this.selectedTemplate = null;
+    this.data.defaultTemplate = undefined;
     this.emailForm.patchValue({
       templateId: null,
       subject: this.originalSubject,
@@ -257,18 +290,21 @@ Best regards,
   
   private handleEmailResponse(response: EmailSendResponse, type: string): void {
     this.sending = false;
-    
+
     if (response.success) {
+      // Handle follow-up template flow
+      this.handleFollowUpFlow();
+
       this.snackBar.open(
-        `Email sent successfully via ${response.provider || 'SMTP'}!`, 
-        'Close', 
+        `Email sent successfully via ${response.provider || 'SMTP'}!`,
+        'Close',
         {
           duration: 5000,
           horizontalPosition: 'right',
           verticalPosition: 'top'
         }
       );
-      
+
       // Close dialog with success result
       this.dialogRef.close({
         action: 'sent',
@@ -280,17 +316,53 @@ Best regards,
           messageId: response.messageId
         }
       } as EmailComposeResult);
-      
+
     } else {
       this.snackBar.open(
-        `Failed to send email: ${response.message}`, 
-        'Close', 
+        `Failed to send email: ${response.message}`,
+        'Close',
         {
           duration: 7000,
           horizontalPosition: 'right',
           verticalPosition: 'top'
         }
       );
+    }
+  }
+
+  private handleFollowUpFlow(): void {
+    // If this is a template-based email and there's an assignment ID
+    if (this.data.assignmentId) {
+      // Mark the assignment as email sent and move to follow-up if available
+      this.templateAssignmentService.markEmailSent(this.data.assignmentId).subscribe({
+        next: () => {
+          console.log('Assignment marked as email sent');
+
+          // Check if the current template has a follow-up template
+          if (this.selectedTemplate?.followUpTemplate) {
+            this.templateAssignmentService.moveToFollowup(this.data.assignmentId!).subscribe({
+              next: () => {
+                console.log('Recruiter moved to follow-up template');
+                this.snackBar.open(
+                  'Recruiter automatically moved to follow-up template',
+                  'Close',
+                  {
+                    duration: 3000,
+                    horizontalPosition: 'right',
+                    verticalPosition: 'top'
+                  }
+                );
+              },
+              error: (error) => {
+                console.error('Failed to move to follow-up template:', error);
+              }
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Failed to mark email as sent:', error);
+        }
+      });
     }
   }
   
@@ -372,5 +444,46 @@ Best regards,
 
   formatCategory(category: string): string {
     return category.toLowerCase().replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+
+  onFileSelected(event: any): void {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(file.type)) {
+        this.snackBar.open('Please select a PDF, DOC, or DOCX file', 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        return;
+      }
+
+      // Validate file size (5MB limit)
+      const maxSizeInBytes = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSizeInBytes) {
+        this.snackBar.open('File size must be less than 5MB', 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        return;
+      }
+
+      this.selectedFile = file;
+    }
+  }
+
+  removeFile(): void {
+    this.selectedFile = null;
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }

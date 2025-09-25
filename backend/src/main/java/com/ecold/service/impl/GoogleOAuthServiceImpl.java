@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.*;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -42,10 +43,12 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
         ClientRegistration googleRegistration = clientRegistrationRepository.findByRegistrationId("google");
 
         // Validate OAuth configuration
-        if (googleRegistration.getClientId() == null || googleRegistration.getClientId().isEmpty()) {
+        if (googleRegistration.getClientId() == null || googleRegistration.getClientId().isEmpty() ||
+            "dummy-client-id".equals(googleRegistration.getClientId())) {
             throw new RuntimeException("Google OAuth Client ID is not configured. Please set GOOGLE_CLIENT_ID environment variable.");
         }
-        if (googleRegistration.getClientSecret() == null || googleRegistration.getClientSecret().isEmpty()) {
+        if (googleRegistration.getClientSecret() == null || googleRegistration.getClientSecret().isEmpty() ||
+            "dummy-client-secret".equals(googleRegistration.getClientSecret())) {
             throw new RuntimeException("Google OAuth Client Secret is not configured. Please set GOOGLE_CLIENT_SECRET environment variable.");
         }
 

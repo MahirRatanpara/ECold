@@ -69,11 +69,7 @@ export class IncomingEmailService {
     return this.http.get(`${environment.apiUrl}/incoming-emails/unread-counts`);
   }
 
-  syncEmails(): Observable<any> {
-    return this.http.post(`${environment.apiUrl}/incoming-emails/sync`, {});
-  }
-
   scanIncomingEmails(): Observable<any> {
-    return this.syncEmails();
+    return this.http.post(`${environment.apiUrl}/incoming-emails/scan`, {});
   }
 }

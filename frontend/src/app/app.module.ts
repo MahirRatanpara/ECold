@@ -50,6 +50,8 @@ import { TemplateEditDialogComponent } from './components/templates/template-edi
 import { TemplatePreviewDialogComponent } from './components/templates/template-preview-dialog/template-preview-dialog.component';
 import { EmailComposeDialogComponent } from './components/email-compose-dialog/email-compose-dialog.component';
 import { IncomingEmailsComponent } from './components/emails/incoming-emails/incoming-emails.component';
+import { TemplateRecruiterViewComponent } from './components/recruiters/template-recruiter-view/template-recruiter-view.component';
+import { BulkEmailDialogComponent } from './components/recruiters/bulk-email-dialog/bulk-email-dialog.component';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 
 @NgModule({
@@ -66,7 +68,9 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
     TemplateEditDialogComponent,
     TemplatePreviewDialogComponent,
     EmailComposeDialogComponent,
-    IncomingEmailsComponent
+    IncomingEmailsComponent,
+    TemplateRecruiterViewComponent,
+    BulkEmailDialogComponent
   ],
   imports: [
     BrowserModule,

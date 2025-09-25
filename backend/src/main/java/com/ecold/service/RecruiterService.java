@@ -20,6 +20,7 @@ public interface RecruiterService {
     }
     
     RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto);
+    RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto, Long templateId);
     RecruiterContactDto getRecruiterById(Long id);
     RecruiterContactDto updateRecruiter(Long id, RecruiterContactDto recruiterDto);
     void deleteRecruiter(Long id);
@@ -28,6 +29,7 @@ public interface RecruiterService {
     RecruiterContactDto markAsContacted(Long id);
     
     List<RecruiterContactDto> importFromCsv(MultipartFile file);
+    List<RecruiterContactDto> importFromCsv(MultipartFile file, Long templateId);
     List<RecruiterContactDto> importFromExcel(MultipartFile file);
     List<RecruiterContactDto> importManual(List<RecruiterContactDto> recruiters);
     List<RecruiterContactDto> importManualFromCsv(String csvData);

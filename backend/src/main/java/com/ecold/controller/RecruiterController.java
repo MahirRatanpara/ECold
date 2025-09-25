@@ -37,8 +37,10 @@ public class RecruiterController {
     }
     
     @PostMapping
-    public ResponseEntity<RecruiterContactDto> createRecruiter(@Valid @RequestBody RecruiterContactDto recruiterDto) {
-        RecruiterContactDto created = recruiterService.createRecruiter(recruiterDto);
+    public ResponseEntity<RecruiterContactDto> createRecruiter(
+            @Valid @RequestBody RecruiterContactDto recruiterDto,
+            @RequestParam(required = false) Long templateId) {
+        RecruiterContactDto created = recruiterService.createRecruiter(recruiterDto, templateId);
         return ResponseEntity.ok(created);
     }
     
@@ -63,8 +65,10 @@ public class RecruiterController {
     }
     
     @PostMapping("/import/csv")
-    public ResponseEntity<List<RecruiterContactDto>> importFromCsv(@RequestParam("file") MultipartFile file) {
-        List<RecruiterContactDto> imported = recruiterService.importFromCsv(file);
+    public ResponseEntity<List<RecruiterContactDto>> importFromCsv(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) Long templateId) {
+        List<RecruiterContactDto> imported = recruiterService.importFromCsv(file, templateId);
         return ResponseEntity.ok(imported);
     }
     

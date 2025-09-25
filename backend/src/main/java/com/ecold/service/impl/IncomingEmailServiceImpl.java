@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -146,7 +145,6 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
     }
     
     @Override
-    @Scheduled(fixedRate = 3600000)
     @Transactional
     public void processIncomingEmails() {
         List<User> users = userRepository.findAll();
@@ -154,6 +152,18 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
             if (user.getProvider() == User.Provider.GOOGLE && user.getAccessToken() != null) {
                 scanIncomingEmails(user);
             }
+        }
+    }
+
+    @Override
+    @Transactional
+    public void refreshUserEmails(User user) {
+        if (user.getProvider() == User.Provider.GOOGLE && user.getAccessToken() != null) {
+            log.info("Refreshing emails for user: {}", user.getEmail());
+            scanIncomingEmails(user);
+        } else {
+            log.warn("Cannot refresh emails for user {} - missing Google OAuth credentials", user.getEmail());
+            throw new RuntimeException("User does not have valid Google OAuth credentials for email access");
         }
     }
     

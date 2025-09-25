@@ -10,6 +10,8 @@ export interface EmailTemplate {
   body: string;
   category: 'OUTREACH' | 'FOLLOW_UP' | 'REFERRAL' | 'INTERVIEW' | 'THANK_YOU';
   status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
+  followUpTemplateId?: number;
+  followUpTemplate?: EmailTemplate;
   usageCount?: number;
   emailsSent?: number;
   responseRate?: number;
@@ -91,6 +93,7 @@ export class EmailTemplateService {
   getTemplateStats(): Observable<TemplateStats> {
     return this.http.get<TemplateStats>(`${environment.apiUrl}/email-templates/stats`);
   }
+
 
   clearAllTemplates(): Observable<void> {
     return this.http.delete<void>(`${environment.apiUrl}/email-templates/clear-all`);

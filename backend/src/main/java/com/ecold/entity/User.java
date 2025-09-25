@@ -56,8 +56,6 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<RecruiterContact> recruiterContacts;
     
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<Resume> resumes;
     
     
     public enum Provider {

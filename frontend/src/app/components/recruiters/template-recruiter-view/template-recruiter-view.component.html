@@ -1,0 +1,302 @@
+<div class="template-recruiter-view-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="title-section">
+      <h1 class="page-title">
+        <mat-icon>people</mat-icon>
+        Template-based Recruiter Management
+      </h1>
+      <p class="page-subtitle">Manage recruiters by template with date range organization and bulk email functionality</p>
+    </div>
+
+    <div class="action-buttons">
+      <button mat-raised-button color="primary" (click)="openAddRecruiterDialog()" [disabled]="!selectedTemplateId">
+        <mat-icon>add</mat-icon>
+        {{ selectedTemplate ? 'Add to ' + selectedTemplate.name : 'Add Recruiter' }}
+      </button>
+      <button mat-stroked-button (click)="openImportDialog()" [disabled]="!selectedTemplateId">
+        <mat-icon>upload_file</mat-icon>
+        {{ selectedTemplate ? 'Import to ' + selectedTemplate.name : 'Import CSV' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Template and Filter Section -->
+  <div class="filter-section">
+    <mat-card>
+      <mat-card-content>
+        <!-- Template Selection Row -->
+        <div class="template-selection-row">
+          <mat-form-field appearance="outline" class="template-dropdown">
+            <mat-label>Select Template</mat-label>
+            <mat-select [(ngModel)]="selectedTemplateId" (selectionChange)="onTemplateSelected()">
+              <mat-option *ngFor="let template of templates" [value]="template.id">
+                <div class="template-option">
+                  <div class="template-name">{{ template.name }}</div>
+                  <div class="template-category">{{ template.category }}</div>
+                </div>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Debug info -->
+          <div style="font-size: 12px; color: #666; margin: 10px 0;">
+            DEBUG: selectedTemplate={{!!selectedTemplate}}, dateRangeSummaries.length={{dateRangeSummaries.length}},
+            condition={{selectedTemplate && dateRangeSummaries.length > 0}}
+          </div>
+
+          <mat-form-field *ngIf="selectedTemplate" appearance="outline" class="date-range-dropdown">
+            <mat-label>Select Date Range</mat-label>
+            <mat-select [(ngModel)]="selectedDateRange" (selectionChange)="onDateRangeSelected($event.value)">
+              <mat-option [value]="null">All Date Ranges</mat-option>
+              <mat-option *ngFor="let dateRange of dateRangeSummaries" [value]="dateRange">
+                {{dateRange.dateRangeLabel}} ({{dateRange.recruitersCount}} recruiters)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button *ngIf="selectedTemplate && selectedDateRange !== null"
+                  mat-raised-button
+                  color="primary"
+                  (click)="sendBulkEmailToDateRange()"
+                  matTooltip="Send bulk email to all recruiters in this date range">
+            <mat-icon>mail</mat-icon>
+            Bulk Email Date Range
+          </button>
+        </div>
+
+        <!-- Loading state for templates -->
+        <div *ngIf="templatesLoading" class="loading-templates">
+          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          <p>Loading templates...</p>
+        </div>
+
+        <!-- No templates state -->
+        <div *ngIf="!templatesLoading && templates.length === 0" class="no-templates">
+          <mat-icon>email</mat-icon>
+          <p>No active templates found. Please create templates first.</p>
+          <button mat-raised-button color="primary" routerLink="/templates">
+            <mat-icon>add</mat-icon>
+            Create Templates
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="loading-content">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading recruiters...</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="error-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="error-content">
+          <mat-icon color="warn">error</mat-icon>
+          <h3>Error Loading Recruiters</h3>
+          <p>{{ error }}</p>
+          <button mat-raised-button color="primary" (click)="resetAndReloadRecruiters()">
+            <mat-icon>refresh</mat-icon>
+            Try Again
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Recruiters Table -->
+  <div *ngIf="selectedTemplateId && !loading && !error" class="table-container">
+    <mat-card>
+      <mat-card-content>
+        <div class="table-header">
+          <div class="table-info">
+            <span class="results-count">
+              Showing {{ dataSource.data.length }}
+              <span *ngIf="totalElements > dataSource.data.length">of {{ totalElements }}</span>
+              recruiters for {{ selectedTemplate?.name }}
+              <span *ngIf="hasMore && !loading" class="load-more-hint">
+                (scroll down for more)
+              </span>
+            </span>
+          </div>
+          <div class="bulk-actions" *ngIf="selection.hasValue()">
+            <span class="selected-count">{{ selection.selected.length }} selected</span>
+            <button mat-icon-button color="warn" (click)="bulkDeleteSelected()" matTooltip="Remove from template">
+              <mat-icon>remove_circle</mat-icon>
+            </button>
+            <button mat-icon-button (click)="selectAllInDateRange()"
+                    *ngIf="selectedDateRange !== null"
+                    matTooltip="Select all in date range">
+              <mat-icon>select_all</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="dataSource" matSort class="recruiters-table">
+            <!-- Checkbox Column -->
+            <ng-container matColumnDef="select">
+              <th mat-header-cell *matHeaderCellDef>
+                <mat-checkbox (change)="$event ? masterToggle() : null"
+                              [checked]="selection.hasValue() && isAllSelected()"
+                              [indeterminate]="selection.hasValue() && !isAllSelected()">
+                </mat-checkbox>
+              </th>
+              <td mat-cell *matCellDef="let row">
+                <mat-checkbox (click)="$event.stopPropagation()"
+                              (change)="$event ? selection.toggle(row) : null"
+                              [checked]="selection.isSelected(row)">
+                </mat-checkbox>
+              </td>
+            </ng-container>
+
+            <!-- Name Column -->
+            <ng-container matColumnDef="recruiterName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+              <td mat-cell *matCellDef="let assignment">
+                <div class="name-cell">
+                  <div class="avatar">
+                    <mat-icon>person</mat-icon>
+                  </div>
+                  <div class="name-info">
+                    <div class="name">{{ assignment.recruiterContact?.recruiterName || 'Unknown' }}</div>
+                    <div class="email">{{ assignment.recruiterContact?.email }}</div>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Company Column -->
+            <ng-container matColumnDef="companyName">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Company</th>
+              <td mat-cell *matCellDef="let assignment">
+                <div class="company-cell">
+                  <div class="company-name">{{ assignment.recruiterContact?.companyName }}</div>
+                  <div class="job-role">{{ assignment.recruiterContact?.jobRole }}</div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Template Name Column -->
+            <ng-container matColumnDef="templateName">
+              <th mat-header-cell *matHeaderCellDef>Template</th>
+              <td mat-cell *matCellDef="let assignment">
+                <mat-chip class="template-chip">{{ assignment.templateName }}</mat-chip>
+              </td>
+            </ng-container>
+
+            <!-- Date Assigned Column -->
+            <ng-container matColumnDef="dateAssigned">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Date Assigned</th>
+              <td mat-cell *matCellDef="let assignment">
+                <div class="date-cell">
+                  {{ formatDate(assignment.createdAt) }}
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Emails Sent Column -->
+            <ng-container matColumnDef="emailsSent">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Emails Sent</th>
+              <td mat-cell *matCellDef="let assignment">
+                <mat-chip [ngClass]="assignment.emailsSent > 0 ? 'emails-sent-chip' : 'no-emails-chip'">
+                  {{ assignment.emailsSent }}
+                </mat-chip>
+              </td>
+            </ng-container>
+
+            <!-- Last Email Sent Column -->
+            <ng-container matColumnDef="lastEmailSentAt">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header>Last Email</th>
+              <td mat-cell *matCellDef="let assignment">
+                <div class="date-cell">
+                  {{ formatDate(assignment.lastEmailSentAt) }}
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let assignment">
+                <div class="action-buttons">
+                  <button mat-icon-button
+                          (click)="sendEmail(assignment)"
+                          matTooltip="Send email">
+                    <mat-icon>email</mat-icon>
+                  </button>
+                  <button mat-icon-button [matMenuTriggerFor]="moreMenu" matTooltip="More Actions">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #moreMenu="matMenu">
+                    <button mat-menu-item (click)="moveToFollowup(assignment.id)">
+                      <mat-icon>forward</mat-icon>
+                      <span>Move to Follow-up</span>
+                    </button>
+                    <mat-divider></mat-divider>
+                    <button mat-menu-item (click)="deleteAssignment(assignment.id)" class="delete-action">
+                      <mat-icon>remove_circle</mat-icon>
+                      <span>Remove from Template</span>
+                    </button>
+                  </mat-menu>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+                class="recruiter-row"></tr>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div *ngIf="dataSource.data.length === 0 && !loading && selectedTemplateId" class="empty-state">
+          <mat-icon>people_outline</mat-icon>
+          <h3>No recruiters assigned to this template</h3>
+          <p>Get started by adding recruiters to {{ selectedTemplate?.name }}.</p>
+          <button mat-raised-button color="primary" (click)="openAddRecruiterDialog()">
+            <mat-icon>add</mat-icon>
+            Add First Recruiter
+          </button>
+        </div>
+
+        <!-- Infinite scroll loading indicator -->
+        <div *ngIf="loadingMore && hasMore" class="loading-more">
+          <mat-spinner diameter="30"></mat-spinner>
+          <p>Loading more recruiters...</p>
+        </div>
+
+        <!-- Scroll sentinel for infinite loading -->
+        <div id="scroll-sentinel-template" *ngIf="hasMore && !loading" style="height: 10px; width: 100%; opacity: 0; background: transparent;"></div>
+
+        <!-- End of results indicator -->
+        <div *ngIf="!hasMore && totalElements > 0 && !loading" class="end-of-results">
+          <mat-icon>check_circle</mat-icon>
+          <p>All recruiters loaded ({{ totalElements }} total)</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- No template selected state -->
+  <div *ngIf="!selectedTemplateId && !templatesLoading && templates.length > 0" class="no-template-selected">
+    <mat-card>
+      <mat-card-content>
+        <div class="no-selection-content">
+          <mat-icon>email</mat-icon>
+          <h3>Select a Template</h3>
+          <p>Choose a template from the dropdown above to view and manage its assigned recruiters.</p>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

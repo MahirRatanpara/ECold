@@ -35,16 +35,17 @@
           </div>
         </div>
 
-        <div class="template-selection" *ngIf="!loadingTemplates">
+        <!-- Template Selection (only when no default template provided) -->
+        <div class="template-selection" *ngIf="!loadingTemplates && !data.defaultTemplate">
           <mat-form-field appearance="outline" class="template-select">
             <mat-label>Choose a template (optional)</mat-label>
             <mat-select formControlName="templateId" [value]="selectedTemplate?.id">
               <mat-option [value]="null">
                 <em>No template - Custom email</em>
               </mat-option>
-              <mat-optgroup *ngFor="let category of getTemplateCategories()" 
+              <mat-optgroup *ngFor="let category of getTemplateCategories()"
                            [label]="formatCategory(category)">
-                <mat-option *ngFor="let template of getTemplatesByCategory(category)" 
+                <mat-option *ngFor="let template of getTemplatesByCategory(category)"
                            [value]="template.id">
                   <div class="template-option">
                     <mat-icon class="template-icon">{{ getCategoryIcon(category) }}</mat-icon>
@@ -63,7 +64,7 @@
             </mat-select>
           </mat-form-field>
 
-          <!-- Selected Template Info -->
+          <!-- Selected Template Info (for manually selected templates) -->
           <div class="selected-template-info" *ngIf="selectedTemplate">
             <mat-card class="template-info-card">
               <mat-card-content>
@@ -83,6 +84,37 @@
               </mat-card-content>
             </mat-card>
           </div>
+        </div>
+
+        <!-- Pre-selected Template Info (when default template is provided) -->
+        <div class="preset-template-info" *ngIf="!loadingTemplates && data.defaultTemplate && selectedTemplate">
+          <mat-card class="template-info-card preset">
+            <mat-card-content>
+              <div class="template-header">
+                <mat-icon [color]="'primary'">{{ getCategoryIcon(selectedTemplate.category) }}</mat-icon>
+                <div class="template-details">
+                  <h5>{{ selectedTemplate.name }}</h5>
+                  <span class="template-category">{{ formatCategory(selectedTemplate.category) }}</span>
+                  <span class="preset-label">
+                    <mat-icon>lock</mat-icon>
+                    Pre-selected from template view
+                  </span>
+                </div>
+                <div class="template-stats">
+                  <span class="stat">{{ selectedTemplate.usageCount || 0 }} uses</span>
+                  <span class="stat" *ngIf="selectedTemplate.responseRate">
+                    {{ (selectedTemplate.responseRate * 100).toFixed(1) }}% response
+                  </span>
+                </div>
+                <button mat-icon-button
+                        (click)="clearPresetTemplate()"
+                        matTooltip="Switch to custom email"
+                        class="clear-preset-btn">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
         </div>
 
         <div class="loading-templates" *ngIf="loadingTemplates">

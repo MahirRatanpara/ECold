@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { trigger, state, style, transition, animate } from '@angular/animations';
+import { IncomingEmailService } from '../../../services/incoming-email.service';
 
 interface IncomingEmail {
   id: string;
@@ -58,7 +59,10 @@ export class IncomingEmailsComponent implements OnInit {
   
   unreadCount = 0;
 
-  constructor(private snackBar: MatSnackBar) {}
+  constructor(
+    private snackBar: MatSnackBar,
+    private incomingEmailService: IncomingEmailService
+  ) {}
 
   ngOnInit(): void {
     this.loadEmails();
@@ -153,15 +157,28 @@ export class IncomingEmailsComponent implements OnInit {
 
   scanInbox(): void {
     this.isScanning = true;
-    
-    setTimeout(() => {
-      this.isScanning = false;
-      this.snackBar.open('Inbox scan completed - 2 new emails found', 'Close', {
-        duration: 3000,
-        horizontalPosition: 'right',
-        verticalPosition: 'top'
-      });
-    }, 2000);
+
+    this.incomingEmailService.scanIncomingEmails().subscribe({
+      next: (response) => {
+        this.isScanning = false;
+        this.snackBar.open(response.message || 'Email refresh completed successfully', 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        // Reload emails after successful scan
+        this.loadEmails();
+      },
+      error: (error) => {
+        this.isScanning = false;
+        const errorMessage = error.error?.message || 'Failed to refresh emails';
+        this.snackBar.open(errorMessage, 'Close', {
+          duration: 5000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+      }
+    });
   }
 
   applyFilter(): void {
