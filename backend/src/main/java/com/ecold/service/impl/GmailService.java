@@ -54,6 +54,12 @@ public class GmailService implements EmailService {
     }
 
     @Override
+    public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime) {
+        // TODO: Implement this method
+        return EmailResponse.failure("NOT_IMPLEMENTED", "Gmail service not fully implemented yet");
+    }
+
+    @Override
     public boolean testEmailConfiguration(User user) {
         return validateEmailConnection(user);
     }

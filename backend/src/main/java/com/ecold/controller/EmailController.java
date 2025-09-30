@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -65,19 +67,43 @@ public class EmailController {
     public ResponseEntity<EmailResponse> sendTemplateEmail(
             @RequestParam Long templateId,
             @RequestParam Long recruiterId,
+            @RequestParam(required = false) String scheduleTime,
             @RequestBody(required = false) Map<String, String> additionalData,
             Authentication authentication) {
-        
+
+        System.out.println("=== EMAILCONTROLLER /send-template ENDPOINT REACHED ===");
+        log.info("=== EMAIL CONTROLLER /send-template === Template: {}, Recruiter: {}, ScheduleTime: {}", templateId, recruiterId, scheduleTime);
+
         try {
             User currentUser = getCurrentUser(authentication);
-            EmailResponse response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData);
-            
+            log.info("=== CONTROLLER === Current user: {}", currentUser.getEmail());
+            EmailResponse response;
+
+            if (scheduleTime != null && !scheduleTime.trim().isEmpty()) {
+                // Parse the schedule time and use the scheduled method
+                log.info("=== CONTROLLER === Parsing scheduleTime: {}", scheduleTime);
+
+                // Parse ISO datetime with timezone (e.g., "2025-09-30T18:40:00.000Z")
+                // and convert to LocalDateTime in server's timezone
+                java.time.Instant instant = java.time.Instant.parse(scheduleTime);
+                LocalDateTime scheduledDateTime = LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+
+                log.info("=== CONTROLLER === Parsed to LocalDateTime: {} (server timezone: {})",
+                    scheduledDateTime, java.time.ZoneId.systemDefault());
+
+                response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData, scheduledDateTime);
+            } else {
+                // Send immediately
+                log.info("=== CONTROLLER === No scheduleTime provided, sending immediately");
+                response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData);
+            }
+
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.badRequest().body(response);
             }
-            
+
         } catch (Exception e) {
             log.error("Error sending template email: {}", e.getMessage(), e);
             EmailResponse errorResponse = EmailResponse.failure("INTERNAL_ERROR", "Internal server error occurred");

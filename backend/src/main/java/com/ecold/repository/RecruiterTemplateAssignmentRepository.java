@@ -2,6 +2,7 @@ package com.ecold.repository;
 
 import com.ecold.entity.RecruiterTemplateAssignment;
 import com.ecold.entity.EmailTemplate;
+import com.ecold.entity.RecruiterContact;
 import com.ecold.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -122,4 +123,21 @@ public interface RecruiterTemplateAssignmentRepository extends JpaRepository<Rec
             @Param("endDate") java.time.LocalDateTime endDate,
             @Param("status") RecruiterTemplateAssignment.AssignmentStatus status,
             Pageable pageable);
+
+    // Method to find assignment by recruiter, template and status
+    RecruiterTemplateAssignment findByRecruiterContactAndEmailTemplateAndAssignmentStatus(
+            RecruiterContact recruiterContact,
+            EmailTemplate emailTemplate,
+            RecruiterTemplateAssignment.AssignmentStatus status);
+
+    // Method to find assignment by template ID, recruiter ID and user ID
+    @Query("SELECT rta FROM RecruiterTemplateAssignment rta " +
+           "WHERE rta.emailTemplate.id = :templateId " +
+           "AND rta.recruiterContact.id = :recruiterId " +
+           "AND rta.user.id = :userId " +
+           "AND rta.assignmentStatus = 'ACTIVE'")
+    java.util.Optional<RecruiterTemplateAssignment> findByTemplateIdAndRecruiterIdAndUserId(
+            @Param("templateId") Long templateId,
+            @Param("recruiterId") Long recruiterId,
+            @Param("userId") Long userId);
 }

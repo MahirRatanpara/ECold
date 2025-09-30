@@ -1,16 +1,19 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { EmailTemplateService, EmailTemplate } from '../../services/email-template.service';
 import { EmailSendService, EmailSendRequest, EmailSendResponse } from '../../services/email-send.service';
 import { RecruiterContact } from '../../services/recruiter.service';
 import { RecruiterTemplateAssignmentService } from '../../services/recruiter-template-assignment.service';
+import { ScheduleSendDialogComponent } from '../schedule-send-dialog/schedule-send-dialog.component';
 
 export interface EmailComposeData {
   recruiter: RecruiterContact;
   defaultTemplate?: EmailTemplate;
   assignmentId?: number; // For template-based recruiters
+  isBulkMode?: boolean; // For bulk sending
+  bulkRecruiters?: any[]; // List of recruiters for bulk sending
 }
 
 export interface EmailComposeResult {
@@ -31,23 +34,30 @@ export interface EmailComposeResult {
 export class EmailComposeDialogComponent implements OnInit {
   emailForm!: FormGroup;
   recruiter: RecruiterContact;
-  
+
   // Template management
   templates: EmailTemplate[] = [];
   selectedTemplate: EmailTemplate | null = null;
   loadingTemplates = false;
-  
+
   // Email composition
   originalSubject = '';
   originalBody = '';
   previewMode = false;
-  
+
   // Loading states
   sending = false;
   savingDraft = false;
 
   // File attachment
   selectedFile: File | null = null;
+
+  // Schedule send
+  scheduledDateTime: Date | null = null;
+
+  // Bulk mode
+  isBulkMode = false;
+  bulkRecruiters: any[] = [];
 
   constructor(
     public dialogRef: MatDialogRef<EmailComposeDialogComponent>,
@@ -56,9 +66,12 @@ export class EmailComposeDialogComponent implements OnInit {
     private templateService: EmailTemplateService,
     private emailSendService: EmailSendService,
     private templateAssignmentService: RecruiterTemplateAssignmentService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {
     this.recruiter = data.recruiter;
+    this.isBulkMode = data.isBulkMode || false;
+    this.bulkRecruiters = data.bulkRecruiters || [];
     this.initializeForm();
   }
 
@@ -72,8 +85,12 @@ export class EmailComposeDialogComponent implements OnInit {
   }
 
   private initializeForm(): void {
+    // In bulk mode, use a valid dummy email for validation, but it won't be used
+    const toValue = this.isBulkMode ? 'bulk@recipients.local' : this.recruiter.email;
+    const toValidators = this.isBulkMode ? [Validators.required] : [Validators.required, Validators.email];
+
     this.emailForm = this.fb.group({
-      to: [this.recruiter.email, [Validators.required, Validators.email]],
+      to: [toValue, toValidators],
       subject: ['', Validators.required],
       body: ['', Validators.required],
       templateId: [null]
@@ -177,30 +194,35 @@ Best regards,
     // Track template usage
     this.templateService.useTemplate(templateId).subscribe({
       next: () => {
-        console.log('Template usage tracked');
+        // Template usage tracked successfully
       },
       error: (error) => {
-        console.error('Failed to track template usage:', error);
+        // Failed to track template usage - continue silently
       }
     });
   }
 
   private processPlaceholders(text: string): string {
     if (!text) return '';
-    
+
+    // In bulk mode, don't replace placeholders - keep them as-is
+    if (this.isBulkMode) {
+      return text;
+    }
+
     const placeholders = {
       'Company': this.recruiter.companyName || '[Company]',
       'Role': this.recruiter.jobRole || '[Role]',
       'RecruiterName': this.recruiter.recruiterName || '[Recruiter Name]',
       'MyName': '[Your Name]' // This should be replaced with actual user name
     };
-    
+
     let processedText = text;
     Object.entries(placeholders).forEach(([placeholder, value]) => {
       const regex = new RegExp(`\\{${placeholder}\\}`, 'g');
       processedText = processedText.replace(regex, value);
     });
-    
+
     return processedText;
   }
 
@@ -248,16 +270,23 @@ Best regards,
       return;
     }
 
+    // Handle bulk mode
+    if (this.isBulkMode) {
+      this.sendBulkEmails(false);
+      return;
+    }
+
     this.sending = true;
     const formData = this.emailForm.value;
-    
+
     // Check if we should send using template API or direct email API
     if (this.selectedTemplate && this.selectedTemplate.id) {
-      // Send using template API
+      // Send using template API immediately
       this.emailSendService.sendTemplateEmail(
-        this.selectedTemplate.id, 
+        this.selectedTemplate.id,
         this.recruiter.id,
-        { MyName: '[Your Name]' } // Additional placeholder data
+        { MyName: '[Your Name]' }, // Additional placeholder data
+        null // Send immediately
       ).subscribe({
         next: (response: EmailSendResponse) => {
           this.handleEmailResponse(response, 'template');
@@ -267,16 +296,18 @@ Best regards,
         }
       });
     } else {
-      // Send using direct email API
+      // Send using direct email API immediately
       const emailRequest: EmailSendRequest = {
         to: formData.to,
         subject: formData.subject,
         body: formData.body,
         isHtml: false,
         recruiterId: this.recruiter.id,
-        priority: 'NORMAL'
+        templateId: this.selectedTemplate?.id || undefined,
+        priority: 'NORMAL',
+        scheduleTime: undefined // Send immediately
       };
-      
+
       this.emailSendService.sendEmail(emailRequest).subscribe({
         next: (response: EmailSendResponse) => {
           this.handleEmailResponse(response, 'direct');
@@ -287,16 +318,21 @@ Best regards,
       });
     }
   }
+
   
   private handleEmailResponse(response: EmailSendResponse, type: string): void {
     this.sending = false;
 
     if (response.success) {
-      // Handle follow-up template flow
+      // Handle follow-up template flow for immediate sends
       this.handleFollowUpFlow();
 
+      const message = this.scheduledDateTime
+        ? `Email scheduled successfully for ${this.scheduledDateTime.toLocaleString()}!`
+        : `Email sent successfully via ${response.provider || 'SMTP'}!`;
+
       this.snackBar.open(
-        `Email sent successfully via ${response.provider || 'SMTP'}!`,
+        message,
         'Close',
         {
           duration: 5000,
@@ -333,34 +369,21 @@ Best regards,
   private handleFollowUpFlow(): void {
     // If this is a template-based email and there's an assignment ID
     if (this.data.assignmentId) {
-      // Mark the assignment as email sent and move to follow-up if available
-      this.templateAssignmentService.markEmailSent(this.data.assignmentId).subscribe({
+      // Email count is already updated by backend, just move to follow-up template
+      this.templateAssignmentService.moveToFollowup(this.data.assignmentId!).subscribe({
         next: () => {
-          console.log('Assignment marked as email sent');
-
-          // Check if the current template has a follow-up template
-          if (this.selectedTemplate?.followUpTemplate) {
-            this.templateAssignmentService.moveToFollowup(this.data.assignmentId!).subscribe({
-              next: () => {
-                console.log('Recruiter moved to follow-up template');
-                this.snackBar.open(
-                  'Recruiter automatically moved to follow-up template',
-                  'Close',
-                  {
-                    duration: 3000,
-                    horizontalPosition: 'right',
-                    verticalPosition: 'top'
-                  }
-                );
-              },
-              error: (error) => {
-                console.error('Failed to move to follow-up template:', error);
-              }
-            });
-          }
+          this.snackBar.open(
+            'Recruiter automatically moved to follow-up template',
+            'Close',
+            {
+              duration: 3000,
+              horizontalPosition: 'right',
+              verticalPosition: 'top'
+            }
+          );
         },
         error: (error) => {
-          console.error('Failed to mark email as sent:', error);
+          // Don't show error to user as this is automatic behavior
         }
       });
     }
@@ -369,7 +392,7 @@ Best regards,
   private handleEmailError(error: any, type: string): void {
     this.sending = false;
     
-    console.error(`Error sending ${type} email:`, error);
+    // Error sending email
     
     let errorMessage = 'Failed to send email';
     if (error.error && error.error.message) {
@@ -485,5 +508,135 @@ Best regards,
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  openScheduleDialog(): void {
+    const dialogRef = this.dialog.open(ScheduleSendDialogComponent, {
+      width: '600px',
+      maxWidth: '90vw',
+      disableClose: false,
+      data: {}
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && result.scheduled) {
+        this.scheduledDateTime = result.dateTime;
+        this.snackBar.open(
+          `Email scheduled for ${result.dateTime.toLocaleString()}`,
+          'Close',
+          {
+            duration: 5000,
+            horizontalPosition: 'right',
+            verticalPosition: 'top'
+          }
+        );
+        // Automatically send the scheduled email
+        this.sendScheduledEmail();
+      }
+    });
+  }
+
+  private sendScheduledEmail(): void {
+    if (!this.emailForm.valid || !this.scheduledDateTime) {
+      return;
+    }
+
+    // Handle bulk mode
+    if (this.isBulkMode) {
+      this.sendBulkEmails(true);
+      return;
+    }
+
+    this.sending = true;
+    const formData = this.emailForm.value;
+
+    console.log('=== SCHEDULING EMAIL ===');
+    console.log('scheduledDateTime (Date object):', this.scheduledDateTime);
+    console.log('scheduledDateTime ISO:', this.scheduledDateTime.toISOString());
+    console.log('scheduledDateTime locale:', this.scheduledDateTime.toLocaleString());
+
+    // Check if we should send using template API or direct email API
+    if (this.selectedTemplate && this.selectedTemplate.id) {
+      // Send using template API with scheduling
+      this.emailSendService.sendTemplateEmail(
+        this.selectedTemplate.id,
+        this.recruiter.id,
+        { MyName: '[Your Name]' },
+        this.scheduledDateTime
+      ).subscribe({
+        next: (response: EmailSendResponse) => {
+          this.handleEmailResponse(response, 'template');
+        },
+        error: (error) => {
+          this.handleEmailError(error, 'template');
+        }
+      });
+    } else {
+      // Send using direct email API with scheduling
+      const emailRequest: EmailSendRequest = {
+        to: formData.to,
+        subject: formData.subject,
+        body: formData.body,
+        recruiterId: this.recruiter.id,
+        placeholderData: {
+          RecruiterName: this.recruiter.recruiterName || 'Recruiter',
+          Company: this.recruiter.companyName || 'Company'
+        },
+        scheduleTime: this.scheduledDateTime
+      };
+
+      console.log('=== EMAIL REQUEST ===', JSON.stringify(emailRequest, null, 2));
+
+      this.emailSendService.sendEmail(emailRequest).subscribe({
+        next: (response: EmailSendResponse) => {
+          this.handleEmailResponse(response, 'direct');
+        },
+        error: (error: any) => {
+          this.handleEmailError(error, 'direct');
+        }
+      });
+    }
+  }
+
+  private sendBulkEmails(isScheduled: boolean): void {
+    this.sending = true;
+    let successCount = 0;
+    let failureCount = 0;
+
+    // Simple loop through each recruiter
+    const sendNext = (index: number) => {
+      if (index >= this.bulkRecruiters.length) {
+        this.sending = false;
+        this.snackBar.open(
+          `${successCount} emails ${isScheduled ? 'scheduled' : 'sent'}${failureCount > 0 ? `, ${failureCount} failed` : ''}!`,
+          'Close',
+          { duration: 5000, horizontalPosition: 'right', verticalPosition: 'top' }
+        );
+        this.dialogRef.close({ action: 'sent' } as EmailComposeResult);
+        return;
+      }
+
+      const assignment = this.bulkRecruiters[index];
+      const recruiter = assignment.recruiterContact;
+
+      // Send to this recruiter using template API
+      this.emailSendService.sendTemplateEmail(
+        this.selectedTemplate!.id!,
+        recruiter.id,
+        { MyName: '[Your Name]' },
+        isScheduled ? this.scheduledDateTime : null
+      ).subscribe({
+        next: () => {
+          successCount++;
+          sendNext(index + 1);
+        },
+        error: () => {
+          failureCount++;
+          sendNext(index + 1);
+        }
+      });
+    };
+
+    sendNext(0);
   }
 }

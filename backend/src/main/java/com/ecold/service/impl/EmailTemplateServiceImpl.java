@@ -101,7 +101,12 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         template.setUser(currentUser);
         template.setCreatedAt(LocalDateTime.now());
         template.setUpdatedAt(LocalDateTime.now());
-        
+
+        // Enforce one active template per category rule
+        if (template.getStatus() == EmailTemplate.Status.ACTIVE) {
+            enforceOneActiveTemplatePerCategory(currentUser, template.getCategory(), null);
+        }
+
         EmailTemplate saved = templateRepository.save(template);
         isDatabaseAvailable = true;
         return convertToDto(saved);
@@ -157,7 +162,12 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         existingTemplate.setStatus(templateDto.getStatus());
         existingTemplate.setTags(convertTagsToString(templateDto.getTags()));
         existingTemplate.setUpdatedAt(LocalDateTime.now());
-        
+
+        // Enforce one active template per category rule
+        if (templateDto.getStatus() == EmailTemplate.Status.ACTIVE) {
+            enforceOneActiveTemplatePerCategory(currentUser, templateDto.getCategory(), id);
+        }
+
         EmailTemplate updated = templateRepository.save(existingTemplate);
         return convertToDto(updated);
     }
@@ -225,12 +235,15 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         User currentUser = getCurrentUser();
         EmailTemplate template = templateRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
+
         // Temporarily disable ownership check for testing
         // if (!template.getUser().getId().equals(currentUser.getId())) {
         //     throw new RuntimeException("Access denied: Template belongs to another user");
         // }
-        
+
+        // Enforce one active template per category rule
+        enforceOneActiveTemplatePerCategory(currentUser, template.getCategory(), id);
+
         template.setStatus(EmailTemplate.Status.ACTIVE);
         template.setUpdatedAt(LocalDateTime.now());
         templateRepository.save(template);
@@ -424,42 +437,68 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         // Check for unmatched braces
         long openBraces = text.chars().filter(ch -> ch == '{').count();
         long closeBraces = text.chars().filter(ch -> ch == '}').count();
-        
+
         if (openBraces != closeBraces) {
             throw new TemplateValidationException(
                 String.format("Invalid placeholder syntax in %s: unmatched braces", fieldName));
         }
-        
+
         // Check for invalid placeholder patterns
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\{([^}]+)\\}");
         java.util.regex.Matcher matcher = pattern.matcher(text);
-        
+
         Set<String> invalidPlaceholders = new HashSet<>();
-        
+
         while (matcher.find()) {
             String placeholder = matcher.group(1);
             if (!validPlaceholders.contains(placeholder)) {
                 invalidPlaceholders.add(placeholder);
             }
         }
-        
+
         if (!invalidPlaceholders.isEmpty()) {
             throw new TemplateValidationException(
-                String.format("Invalid placeholders in %s: %s. Valid placeholders are: %s", 
-                    fieldName, 
+                String.format("Invalid placeholders in %s: %s. Valid placeholders are: %s",
+                    fieldName,
                     String.join(", ", invalidPlaceholders),
                     String.join(", ", validPlaceholders)));
         }
-        
+
         // Check for malformed patterns
         if (text.contains("{{}}") || text.contains("{}")) {
             throw new TemplateValidationException(
                 String.format("Empty placeholders not allowed in %s", fieldName));
         }
-        
+
         if (text.contains("{{") || text.contains("}}")) {
             throw new TemplateValidationException(
                 String.format("Double braces not allowed in %s", fieldName));
+        }
+    }
+
+    /**
+     * Enforces the rule that only one template per category can be active at a time.
+     * When activating a template, deactivates any other active template in the same category.
+     *
+     * @param user The current user
+     * @param category The category of the template being activated
+     * @param excludeTemplateId Template ID to exclude from deactivation (for updates)
+     */
+    private void enforceOneActiveTemplatePerCategory(User user, EmailTemplate.Category category, Long excludeTemplateId) {
+        // Find all active templates in the same category for this user
+        List<EmailTemplate> activeTemplatesInCategory = templateRepository.findByUserAndCategoryAndStatus(
+            user, category, EmailTemplate.Status.ACTIVE);
+
+        // Filter out the current template being updated (if any)
+        List<EmailTemplate> templatesToDeactivate = activeTemplatesInCategory.stream()
+            .filter(template -> excludeTemplateId == null || !template.getId().equals(excludeTemplateId))
+            .collect(Collectors.toList());
+
+        // Deactivate other active templates in the same category
+        for (EmailTemplate template : templatesToDeactivate) {
+            template.setStatus(EmailTemplate.Status.DRAFT);
+            template.setUpdatedAt(LocalDateTime.now());
+            templateRepository.save(template);
         }
     }
 

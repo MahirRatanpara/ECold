@@ -15,6 +15,7 @@ export interface EmailSendRequest {
   placeholderData?: { [key: string]: string };
   priority?: 'LOW' | 'NORMAL' | 'HIGH';
   isFollowUp?: boolean;
+  scheduleTime?: Date;
 }
 
 export interface EmailSendResponse {
@@ -49,11 +50,15 @@ export class EmailSendService {
     return this.http.post<EmailSendResponse>(`${environment.apiUrl}/emails/send`, emailRequest);
   }
 
-  sendTemplateEmail(templateId: number, recruiterId: number, additionalData?: { [key: string]: string }): Observable<EmailSendResponse> {
+  sendTemplateEmail(templateId: number, recruiterId: number, additionalData?: { [key: string]: string }, scheduleTime?: Date | null): Observable<EmailSendResponse> {
     const params = new URLSearchParams();
     params.append('templateId', templateId.toString());
     params.append('recruiterId', recruiterId.toString());
-    
+
+    if (scheduleTime) {
+      params.append('scheduleTime', scheduleTime.toISOString());
+    }
+
     const url = `${environment.apiUrl}/emails/send-template?${params.toString()}`;
     return this.http.post<EmailSendResponse>(url, additionalData || {});
   }

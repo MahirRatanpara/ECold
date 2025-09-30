@@ -31,19 +31,11 @@
             <mat-label>Select Template</mat-label>
             <mat-select [(ngModel)]="selectedTemplateId" (selectionChange)="onTemplateSelected()">
               <mat-option *ngFor="let template of templates" [value]="template.id">
-                <div class="template-option">
-                  <div class="template-name">{{ template.name }}</div>
-                  <div class="template-category">{{ template.category }}</div>
-                </div>
+                {{ template.name }}
               </mat-option>
             </mat-select>
           </mat-form-field>
 
-          <!-- Debug info -->
-          <div style="font-size: 12px; color: #666; margin: 10px 0;">
-            DEBUG: selectedTemplate={{!!selectedTemplate}}, dateRangeSummaries.length={{dateRangeSummaries.length}},
-            condition={{selectedTemplate && dateRangeSummaries.length > 0}}
-          </div>
 
           <mat-form-field *ngIf="selectedTemplate" appearance="outline" class="date-range-dropdown">
             <mat-label>Select Date Range</mat-label>
@@ -54,15 +46,6 @@
               </mat-option>
             </mat-select>
           </mat-form-field>
-
-          <button *ngIf="selectedTemplate && selectedDateRange !== null"
-                  mat-raised-button
-                  color="primary"
-                  (click)="sendBulkEmailToDateRange()"
-                  matTooltip="Send bulk email to all recruiters in this date range">
-            <mat-icon>mail</mat-icon>
-            Bulk Email Date Range
-          </button>
         </div>
 
         <!-- Loading state for templates -->
@@ -130,6 +113,10 @@
           </div>
           <div class="bulk-actions" *ngIf="selection.hasValue()">
             <span class="selected-count">{{ selection.selected.length }} selected</span>
+            <button mat-raised-button color="primary" (click)="bulkSendEmails()" matTooltip="Send bulk emails to selected recruiters">
+              <mat-icon>send</mat-icon>
+              Bulk Send
+            </button>
             <button mat-icon-button color="warn" (click)="bulkDeleteSelected()" matTooltip="Remove from template">
               <mat-icon>remove_circle</mat-icon>
             </button>
@@ -188,9 +175,11 @@
 
             <!-- Template Name Column -->
             <ng-container matColumnDef="templateName">
-              <th mat-header-cell *matHeaderCellDef>Template</th>
+              <th mat-header-cell *matHeaderCellDef>Template Type</th>
               <td mat-cell *matCellDef="let assignment">
-                <mat-chip class="template-chip">{{ assignment.templateName }}</mat-chip>
+                <mat-chip class="category-tag" *ngIf="assignment.emailTemplate?.category">
+                  {{ formatCategory(assignment.emailTemplate.category) }}
+                </mat-chip>
               </td>
             </ng-container>
 

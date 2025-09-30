@@ -13,13 +13,8 @@ const routes: Routes = [
   { path: 'auth/google/callback', component: GoogleCallbackComponent },
   {
     path: '',
-    redirectTo: '/login',
+    redirectTo: '/template-recruiters',
     pathMatch: 'full'
-  },
-  {
-    path: 'dashboard',
-    component: DashboardComponent,
-    canActivate: [AuthGuard]
   },
   {
     path: 'template-recruiters',
@@ -31,12 +26,7 @@ const routes: Routes = [
     component: EmailTemplatesComponent,
     canActivate: [AuthGuard]
   },
-  {
-    path: 'inbox',
-    component: IncomingEmailsComponent,
-    canActivate: [AuthGuard]
-  },
-  { path: '**', redirectTo: '/login' }
+  { path: '**', redirectTo: '/template-recruiters' }
 ];
 
 @NgModule({

@@ -244,12 +244,23 @@
       .bulk-actions {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
+        padding: 8px;
+        background-color: #f3f4f6;
+        border-radius: 8px;
+        border: 1px solid #e1e5e9;
 
         .selected-count {
           color: #3f51b5;
           font-weight: 500;
           font-size: 0.9rem;
+          padding: 4px 8px;
+          background-color: #e8eaf6;
+          border-radius: 4px;
+        }
+
+        button[mat-raised-button] {
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
       }
     }
@@ -306,9 +317,25 @@
           color: #666;
         }
 
-        .template-chip {
-          background-color: #e3f2fd;
-          color: #1976d2;
+        .template-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+
+          .template-name {
+            font-weight: 500;
+            color: #333;
+          }
+
+          .category-tag {
+            background-color: #e3f2fd;
+            color: #1976d2;
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            height: auto;
+            min-height: 20px;
+          }
         }
 
         .emails-sent-chip {

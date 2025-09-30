@@ -51,7 +51,7 @@
             <div class="stat-details">
               <div class="stat-number">{{ templateStats?.totalTemplates || 0 }}</div>
               <div class="stat-label">Total Templates</div>
-              <div class="stat-change positive">+3 this week</div>
+              <div class="stat-change positive">Total created</div>
             </div>
           </div>
         </mat-card-content>
@@ -81,7 +81,7 @@
             <div class="stat-details">
               <div class="stat-number">{{ templateStats?.avgResponseRate || 0 }}%</div>
               <div class="stat-label">Avg Response Rate</div>
-              <div class="stat-change positive">+2.3% improvement</div>
+              <div class="stat-change positive">Average rate</div>
             </div>
           </div>
         </mat-card-content>
@@ -295,17 +295,9 @@
             <mat-icon>add</mat-icon>
             New Template
           </button>
-          <button mat-stroked-button (click)="bulkImport()">
-            <mat-icon>upload_file</mat-icon>
-            Bulk Import
-          </button>
           <button mat-stroked-button (click)="exportAll()">
             <mat-icon>download</mat-icon>
             Export All
-          </button>
-          <button mat-stroked-button (click)="viewAnalytics()">
-            <mat-icon>analytics</mat-icon>
-            View Analytics
           </button>
         </div>
       </mat-card-content>

@@ -3,6 +3,7 @@ package com.ecold.service.impl;
 import com.ecold.dto.RecruiterTemplateAssignmentDto;
 import com.ecold.dto.TemplateWeekSummaryDto;
 import com.ecold.dto.RecruiterContactDto;
+import com.ecold.dto.EmailTemplateDto;
 import com.ecold.entity.*;
 import com.ecold.repository.RecruiterTemplateAssignmentRepository;
 import com.ecold.repository.RecruiterContactRepository;
@@ -87,7 +88,6 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
         List<Object[]> weeklyGroups = assignmentRepository.findWeeklyGroupsByUserAndTemplateAndStatusBasedOnDate(
                 template, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
 
-        System.out.println("DEBUG: Found " + weeklyGroups.size() + " weekly groups for template " + templateId);
 
         return weeklyGroups.stream()
                 .map(row -> {
@@ -167,6 +167,7 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
         assignment.setWeekAssigned(currentWeek);
         assignment.setYearAssigned(currentYear);
         assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+        assignment.setEmailsSent(0); // Explicitly set to 0 for new assignments
 
         assignment = assignmentRepository.save(assignment);
         return convertToDto(assignment);
@@ -194,6 +195,7 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
             assignment.setWeekAssigned(currentWeek);
             assignment.setYearAssigned(currentYear);
             assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+            assignment.setEmailsSent(0); // Explicitly set to 0 for new assignments
             return assignment;
         }).collect(Collectors.toList());
 
@@ -207,22 +209,49 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
         EmailTemplate currentTemplate = assignment.getEmailTemplate();
+        EmailTemplate followUpTemplate = null;
+
+        // First check if current template has a specific follow-up template
         if (currentTemplate.getFollowUpTemplate() != null) {
+            followUpTemplate = currentTemplate.getFollowUpTemplate();
+        } else {
+            // If no specific follow-up template, find the active FOLLOW_UP category template for this user
+            List<EmailTemplate> followUpTemplates = templateRepository.findByUserAndCategoryAndStatus(
+                assignment.getUser(),
+                EmailTemplate.Category.FOLLOW_UP,
+                EmailTemplate.Status.ACTIVE
+            );
+
+            if (!followUpTemplates.isEmpty()) {
+                // Use the first active follow-up template
+                followUpTemplate = followUpTemplates.get(0);
+            }
+        }
+
+        if (followUpTemplate != null) {
             // Create new assignment with follow-up template
             RecruiterTemplateAssignment followUpAssignment = new RecruiterTemplateAssignment();
             followUpAssignment.setRecruiterContact(assignment.getRecruiterContact());
-            followUpAssignment.setEmailTemplate(currentTemplate.getFollowUpTemplate());
+            followUpAssignment.setEmailTemplate(followUpTemplate);
             followUpAssignment.setUser(assignment.getUser());
             followUpAssignment.setWeekAssigned(assignment.getWeekAssigned());
             followUpAssignment.setYearAssigned(assignment.getYearAssigned());
             followUpAssignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
 
-            assignmentRepository.save(followUpAssignment);
-        }
+            // Preserve email count and last email sent date from original assignment
+            followUpAssignment.setEmailsSent(assignment.getEmailsSent());
+            followUpAssignment.setLastEmailSentAt(assignment.getLastEmailSentAt());
 
-        // Mark current assignment as moved to follow-up
-        assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
-        assignmentRepository.save(assignment);
+            assignmentRepository.save(followUpAssignment);
+
+            // Mark current assignment as moved to follow-up
+            assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
+            assignmentRepository.save(assignment);
+        } else {
+            // No follow-up template available, just mark assignment as completed/inactive
+            assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
+            assignmentRepository.save(assignment);
+        }
     }
 
 
@@ -285,6 +314,25 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
             recruiterDto.setCreatedAt(assignment.getRecruiterContact().getCreatedAt());
             recruiterDto.setUpdatedAt(assignment.getRecruiterContact().getUpdatedAt());
             dto.setRecruiterContact(recruiterDto);
+        }
+
+        // Convert email template information
+        if (assignment.getEmailTemplate() != null) {
+            EmailTemplateDto templateDto = new EmailTemplateDto();
+            templateDto.setId(assignment.getEmailTemplate().getId());
+            templateDto.setName(assignment.getEmailTemplate().getName());
+            templateDto.setSubject(assignment.getEmailTemplate().getSubject());
+            templateDto.setBody(assignment.getEmailTemplate().getBody());
+            templateDto.setCategory(assignment.getEmailTemplate().getCategory());
+            templateDto.setStatus(assignment.getEmailTemplate().getStatus());
+            templateDto.setUsageCount(assignment.getEmailTemplate().getUsageCount());
+            templateDto.setEmailsSent(assignment.getEmailTemplate().getEmailsSent());
+            templateDto.setResponseRate(assignment.getEmailTemplate().getResponseRate());
+            templateDto.setIsDefault(assignment.getEmailTemplate().getIsDefault());
+            templateDto.setLastUsed(assignment.getEmailTemplate().getLastUsed());
+            templateDto.setCreatedAt(assignment.getEmailTemplate().getCreatedAt());
+            templateDto.setUpdatedAt(assignment.getEmailTemplate().getUpdatedAt());
+            dto.setEmailTemplate(templateDto);
         }
 
         return dto;
