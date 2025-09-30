@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 
@@ -42,7 +43,10 @@ public class EmailRequest {
     
     // Track if this is a follow-up email
     private boolean isFollowUp;
-    
+
+    // Schedule time for delayed sending
+    private LocalDateTime scheduleTime;
+
     public enum Priority {
         LOW, NORMAL, HIGH
     }

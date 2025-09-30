@@ -15,4 +15,5 @@ public interface IncomingEmailService {
     void markAsRead(Long emailId);
     Long getUnreadCount(User user, IncomingEmail.EmailCategory category);
     void processIncomingEmails();
+    void refreshUserEmails(User user);
 }

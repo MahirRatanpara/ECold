@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "email_templates")
@@ -43,7 +44,8 @@ public class EmailTemplate {
     private Double responseRate = 0.0;
     
     private String tags; // JSON string of tags array
-    
+
+
     @Column(name = "is_default", nullable = false)
     private Boolean isDefault = false;
     
@@ -54,7 +56,17 @@ public class EmailTemplate {
     
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-    
+
+    @OneToMany(mappedBy = "emailTemplate", cascade = CascadeType.ALL)
+    private List<RecruiterTemplateAssignment> recruiterAssignments;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "follow_up_template_id")
+    private EmailTemplate followUpTemplate;
+
+    @OneToMany(mappedBy = "followUpTemplate", cascade = CascadeType.ALL)
+    private List<EmailTemplate> parentTemplates;
+
     public enum Category {
         OUTREACH, FOLLOW_UP, REFERRAL, INTERVIEW, THANK_YOU
     }

@@ -1,0 +1,68 @@
+<!-- Simple Schedule Send Dialog -->
+<div class="schedule-dialog">
+  <!-- Header -->
+  <h2 mat-dialog-title>
+    <mat-icon>schedule</mat-icon>
+    Schedule Email
+  </h2>
+
+  <!-- Content -->
+  <mat-dialog-content>
+    <p class="description">
+      Select when you want this email to be sent.
+    </p>
+
+    <!-- Date Picker -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Select Date</mat-label>
+      <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate" [min]="minDate">
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <!-- Time Picker -->
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Select Time</mat-label>
+      <input matInput type="time" [(ngModel)]="selectedTime">
+    </mat-form-field>
+
+    <!-- Quick Presets -->
+    <div class="presets">
+      <h4>Quick Options</h4>
+      <div class="preset-buttons">
+        <button mat-button
+                *ngFor="let preset of quickPresets"
+                (click)="selectPreset(preset)"
+                class="preset-btn">
+          {{ preset.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Selected DateTime Preview -->
+    <div class="preview" *ngIf="selectedDate && selectedTime">
+      <mat-card>
+        <mat-card-content>
+          <div class="preview-content">
+            <mat-icon>access_time</mat-icon>
+            <div>
+              <strong>Scheduled for:</strong><br>
+              {{ getFormattedDateTime() }}
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </mat-dialog-content>
+
+  <!-- Actions -->
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="onCancel()">Cancel</button>
+    <button mat-raised-button
+            color="primary"
+            (click)="onSchedule()"
+            [disabled]="!isValid()">
+      Schedule Email
+    </button>
+  </mat-dialog-actions>
+</div>

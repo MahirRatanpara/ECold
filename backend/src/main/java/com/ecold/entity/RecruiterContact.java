@@ -52,6 +52,9 @@ public class RecruiterContact {
     
     @OneToMany(mappedBy = "recruiterContact", cascade = CascadeType.ALL)
     private List<EmailLog> emailLogs;
+
+    @OneToMany(mappedBy = "recruiterContact", cascade = CascadeType.ALL)
+    private List<RecruiterTemplateAssignment> templateAssignments;
     
     public enum ContactStatus {
         PENDING, CONTACTED, RESPONDED, REJECTED, INTERVIEWED, HIRED

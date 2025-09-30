@@ -1,5 +1,10 @@
 package com.ecold.controller;
 
+import com.ecold.entity.User;
+import com.ecold.service.IncomingEmailService;
+import com.ecold.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,7 +17,12 @@ import java.util.Map;
 @RestController
 @RequestMapping("/incoming-emails")
 @CrossOrigin(origins = {"http://localhost:4200", "http://localhost:3000"})
+@RequiredArgsConstructor
+@Slf4j
 public class IncomingEmailsController {
+
+    private final IncomingEmailService incomingEmailService;
+    private final UserService userService;
     
     @GetMapping("/highlights")
     public ResponseEntity<List<Map<String, Object>>> getInboxHighlights() {
@@ -61,8 +71,26 @@ public class IncomingEmailsController {
     }
     
     @PostMapping("/scan")
-    public ResponseEntity<Void> scanIncomingEmails() {
-        // Mock implementation - just return success
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Map<String, String>> scanIncomingEmails() {
+        try {
+            User currentUser = userService.getCurrentUser();
+            log.info("Manual email refresh requested by user: {}", currentUser.getEmail());
+
+            incomingEmailService.refreshUserEmails(currentUser);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Email refresh completed successfully");
+            response.put("status", "success");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to refresh emails: {}", e.getMessage(), e);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Failed to refresh emails: " + e.getMessage());
+            response.put("status", "error");
+
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 }

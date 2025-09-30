@@ -96,7 +96,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean shouldSkipFilter(String requestURI) {
         // Skip JWT authentication for these endpoints
         return requestURI.startsWith("/api/auth/") ||
-               requestURI.startsWith("/api/actuator/") ||
-               requestURI.startsWith("/api/email-templates/");
+               requestURI.startsWith("/api/actuator/");
     }
 }

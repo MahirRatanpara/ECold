@@ -4,38 +4,31 @@
   margin: 0 auto;
 }
 
-// Infinite scroll styles
-.loading-more {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  
-  p {
-    margin-top: 12px;
-    color: #666;
-    font-size: 14px;
-  }
-}
-
+.loading-more,
 .end-of-results {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  color: #4caf50;
-  
-  mat-icon {
-    font-size: 32px;
-    margin-bottom: 8px;
-  }
-  
+
   p {
     margin: 0;
     font-size: 14px;
     color: #666;
+  }
+}
+
+.loading-more p {
+  margin-top: 12px;
+}
+
+.end-of-results {
+  color: #4caf50;
+
+  mat-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
   }
 }
 
@@ -112,6 +105,35 @@
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 
+    .template-selection-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      flex-wrap: wrap;
+
+      .template-dropdown {
+        min-width: 200px;
+        flex: 1;
+      }
+
+      .week-dropdown {
+        min-width: 180px;
+      }
+
+      button {
+        border-radius: 8px;
+        font-weight: 500;
+        min-width: 140px;
+
+        mat-icon {
+          margin-right: 8px;
+        }
+      }
+    }
+
     .filter-controls {
       display: grid;
       grid-template-columns: 2fr 1fr 1fr auto;
@@ -133,15 +155,16 @@
   }
 }
 
-// Loading State
-.loading-container, .error-container {
+.loading-container,
+.error-container {
   margin-bottom: 24px;
 
   mat-card {
     border-radius: 12px;
     text-align: center;
 
-    .loading-content, .error-content {
+    .loading-content,
+    .error-content {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -233,7 +256,6 @@
     cursor: pointer;
   }
 
-  // Name Cell
   .name-cell {
     display: flex;
     align-items: center;
@@ -255,36 +277,21 @@
         height: 20px;
       }
     }
-
-    .name-info {
-      .name {
-        font-weight: 500;
-        color: #333;
-        margin-bottom: 2px;
-      }
-
-      .email {
-        font-size: 0.85rem;
-        color: #666;
-      }
-    }
   }
 
-  // Company Cell
-  .company-cell {
-    .company-name {
-      font-weight: 500;
-      color: #333;
-      margin-bottom: 2px;
-    }
-
-    .job-role {
-      font-size: 0.85rem;
-      color: #666;
-    }
+  .name-cell .name-info .name,
+  .company-cell .company-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 2px;
   }
 
-  // Status Chips
+  .name-cell .name-info .email,
+  .company-cell .job-role {
+    font-size: 0.85rem;
+    color: #666;
+  }
+
   mat-chip {
     display: flex;
     align-items: center;
@@ -309,19 +316,22 @@
       color: #1976d2;
     }
 
-    &.status-responded {
+    &.status-responded,
+    &.status-hired {
       background-color: #e8f5e8;
+    }
+
+    &.status-responded {
       color: #388e3c;
+    }
+
+    &.status-hired {
+      color: #2e7d32;
     }
 
     &.status-rejected {
       background-color: #ffebee;
       color: #d32f2f;
-    }
-
-    &.status-hired {
-      background-color: #e8f5e8;
-      color: #2e7d32;
     }
 
     &.status-unknown {
@@ -330,19 +340,16 @@
     }
   }
 
-  // Date Cell
   .date-cell {
     font-size: 0.9rem;
     color: #666;
   }
 
-  // LinkedIn Link
   .no-link {
     color: #ccc;
     font-size: 1.2rem;
   }
 
-  // Action Buttons
   .action-buttons {
     display: flex;
     gap: 4px;
@@ -365,7 +372,6 @@
   }
 }
 
-// Empty State
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -393,10 +399,21 @@
   }
 }
 
-// Responsive Design
 @media (max-width: 1200px) {
-  .filter-section {
-    mat-card .filter-controls {
+  .filter-section mat-card {
+    .template-selection-row {
+      flex-direction: column;
+      align-items: stretch;
+
+      .template-dropdown,
+      .week-dropdown,
+      button {
+        min-width: auto;
+        width: 100%;
+      }
+    }
+
+    .filter-controls {
       grid-template-columns: 1fr;
       gap: 12px;
 

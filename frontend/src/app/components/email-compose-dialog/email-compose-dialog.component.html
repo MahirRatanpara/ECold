@@ -3,14 +3,18 @@
   <h2 mat-dialog-title>
     <div class="header-content">
       <div class="title-section">
-        <mat-icon>email</mat-icon>
-        <span>Compose Email</span>
+        <mat-icon>{{ isBulkMode ? 'group' : 'email' }}</mat-icon>
+        <span>{{ isBulkMode ? 'Bulk Send Email' : 'Compose Email' }}</span>
       </div>
       <div class="recipient-info">
         <span class="to-label">To:</span>
-        <div class="recipient-details">
+        <div class="recipient-details" *ngIf="!isBulkMode">
           <strong>{{ recruiter.recruiterName || 'Recruiter' }}</strong>
           <span class="company">at {{ recruiter.companyName }}</span>
+        </div>
+        <div class="recipient-details" *ngIf="isBulkMode">
+          <strong>{{ bulkRecruiters.length }} Recipients</strong>
+          <span class="company">(Placeholders will be replaced for each recipient)</span>
         </div>
       </div>
     </div>
@@ -19,77 +23,6 @@
   <div mat-dialog-content class="dialog-content">
     <form [formGroup]="emailForm" class="email-form">
       
-      <!-- Template Selection Section -->
-      <div class="template-section">
-        <div class="section-header">
-          <h4>
-            <mat-icon>description</mat-icon>
-            Email Template
-          </h4>
-          <div class="template-actions" *ngIf="selectedTemplate">
-            <button mat-icon-button 
-                    (click)="removeTemplate()" 
-                    matTooltip="Remove template and use custom email">
-              <mat-icon>clear</mat-icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="template-selection" *ngIf="!loadingTemplates">
-          <mat-form-field appearance="outline" class="template-select">
-            <mat-label>Choose a template (optional)</mat-label>
-            <mat-select formControlName="templateId" [value]="selectedTemplate?.id">
-              <mat-option [value]="null">
-                <em>No template - Custom email</em>
-              </mat-option>
-              <mat-optgroup *ngFor="let category of getTemplateCategories()" 
-                           [label]="formatCategory(category)">
-                <mat-option *ngFor="let template of getTemplatesByCategory(category)" 
-                           [value]="template.id">
-                  <div class="template-option">
-                    <mat-icon class="template-icon">{{ getCategoryIcon(category) }}</mat-icon>
-                    <div class="template-info">
-                      <div class="template-name">{{ template.name }}</div>
-                      <div class="template-meta">
-                        <span class="usage">{{ template.usageCount || 0 }} uses</span>
-                        <span class="response-rate" *ngIf="template.responseRate">
-                          {{ (template.responseRate * 100).toFixed(1) }}% response rate
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </mat-option>
-              </mat-optgroup>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Selected Template Info -->
-          <div class="selected-template-info" *ngIf="selectedTemplate">
-            <mat-card class="template-info-card">
-              <mat-card-content>
-                <div class="template-header">
-                  <mat-icon [color]="'primary'">{{ getCategoryIcon(selectedTemplate.category) }}</mat-icon>
-                  <div class="template-details">
-                    <h5>{{ selectedTemplate.name }}</h5>
-                    <span class="template-category">{{ formatCategory(selectedTemplate.category) }}</span>
-                  </div>
-                  <div class="template-stats">
-                    <span class="stat">{{ selectedTemplate.usageCount || 0 }} uses</span>
-                    <span class="stat" *ngIf="selectedTemplate.responseRate">
-                      {{ (selectedTemplate.responseRate * 100).toFixed(1) }}% response
-                    </span>
-                  </div>
-                </div>
-              </mat-card-content>
-            </mat-card>
-          </div>
-        </div>
-
-        <div class="loading-templates" *ngIf="loadingTemplates">
-          <mat-spinner diameter="30"></mat-spinner>
-          <span>Loading templates...</span>
-        </div>
-      </div>
 
       <!-- Email Content Section -->
       <div class="email-content-section">
@@ -204,12 +137,13 @@
         </div>
       </div>
     </form>
+
   </div>
 
   <!-- Dialog Actions -->
   <div mat-dialog-actions class="dialog-actions">
     <div class="secondary-actions">
-      <button mat-button 
+      <button mat-button
               type="button"
               (click)="onSaveDraft()"
               [disabled]="savingDraft"
@@ -219,18 +153,26 @@
         Save Draft
       </button>
     </div>
-    
+
     <div class="primary-actions">
       <button mat-button (click)="onCancel()" [disabled]="sending">
         Cancel
       </button>
-      <button mat-raised-button 
-              color="primary" 
+      <button mat-stroked-button
+              color="accent"
+              (click)="openScheduleDialog()"
+              [disabled]="!emailForm.valid || sending"
+              matTooltip="Schedule this email for later">
+        <mat-icon>schedule</mat-icon>
+        Schedule Send
+      </button>
+      <button mat-raised-button
+              color="primary"
               (click)="onSendEmail()"
               [disabled]="!emailForm.valid || sending">
         <mat-spinner diameter="16" *ngIf="sending"></mat-spinner>
         <mat-icon *ngIf="!sending">send</mat-icon>
-        Send Email
+        Send Now
       </button>
     </div>
   </div>

@@ -44,7 +44,7 @@ export class EmailTemplatesComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error loading templates:', error);
+        // Error loading templates
         this.error = 'Failed to load templates. Please try again.';
         this.loading = false;
       }
@@ -57,7 +57,7 @@ export class EmailTemplatesComponent implements OnInit {
         this.templateStats = stats;
       },
       error: (error) => {
-        console.error('Error loading template stats:', error);
+        // Error loading template stats
       }
     });
   }
@@ -136,7 +136,7 @@ export class EmailTemplatesComponent implements OnInit {
         this.loadStats();
       },
       error: (error) => {
-        console.error('Error duplicating template:', error);
+        // Error duplicating template
         this.snackBar.open('Failed to duplicate template', 'Close', {
           duration: 5000,
           horizontalPosition: 'right',
@@ -171,7 +171,7 @@ export class EmailTemplatesComponent implements OnInit {
         this.loadStats();
       },
       error: (error) => {
-        console.error('Error using template:', error);
+        // Error using template
         this.snackBar.open('Failed to record template usage', 'Close', {
           duration: 3000
         });
@@ -221,7 +221,7 @@ export class EmailTemplatesComponent implements OnInit {
           this.loadStats();
         },
         error: (error) => {
-          console.error('Error archiving template:', error);
+          // Error archiving template
           this.snackBar.open('Failed to archive template', 'Close', {
             duration: 5000,
             horizontalPosition: 'right',
@@ -247,7 +247,7 @@ export class EmailTemplatesComponent implements OnInit {
           this.loadStats();
         },
         error: (error) => {
-          console.error('Error deleting template:', error);
+          // Error deleting template
           this.snackBar.open('Failed to delete template', 'Close', {
             duration: 5000,
             horizontalPosition: 'right',
@@ -291,7 +291,7 @@ export class EmailTemplatesComponent implements OnInit {
                 this.loadStats();
               },
               error: (error) => {
-                console.error('Error importing template:', error);
+                // Error importing template
                 this.snackBar.open('Failed to import template', 'Close', {
                   duration: 5000,
                   horizontalPosition: 'right',
@@ -334,21 +334,30 @@ export class EmailTemplatesComponent implements OnInit {
     }
   }
 
-  bulkImport(): void {
-    this.snackBar.open('Bulk import functionality would be implemented here', 'Close', {
-      duration: 3000
-    });
-  }
-
   exportAll(): void {
-    this.snackBar.open('Exporting all templates...', 'Close', {
-      duration: 3000
-    });
-  }
+    const allTemplatesData = this.templates.map(template => ({
+      name: template.name,
+      subject: template.subject,
+      body: template.body,
+      category: template.category,
+      tags: template.tags
+    }));
 
-  viewAnalytics(): void {
-    this.snackBar.open('Template analytics would be shown here', 'Close', {
-      duration: 3000
+    const blob = new Blob([JSON.stringify(allTemplatesData, null, 2)], {
+      type: 'application/json'
+    });
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `all_templates_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    this.snackBar.open('All templates exported successfully', 'Close', {
+      duration: 3000,
+      horizontalPosition: 'right',
+      verticalPosition: 'top'
     });
   }
 

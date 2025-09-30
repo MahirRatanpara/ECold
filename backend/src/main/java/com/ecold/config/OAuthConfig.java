@@ -1,6 +1,7 @@
 package com.ecold.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -8,6 +9,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.util.StringUtils;
 
 @Configuration
 public class OAuthConfig {
@@ -23,9 +25,32 @@ public class OAuthConfig {
 
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository() {
+        if (StringUtils.hasText(googleClientId) && StringUtils.hasText(googleClientSecret) &&
+            !"dummy-client-id".equals(googleClientId) && !"dummy-client-secret".equals(googleClientSecret)) {
+            return new InMemoryClientRegistrationRepository(
+                googleClientRegistration()
+            );
+        }
+        // Create a dummy registration to prevent empty repository errors
         return new InMemoryClientRegistrationRepository(
-            googleClientRegistration()
+            createDummyGoogleRegistration()
         );
+    }
+
+    private ClientRegistration createDummyGoogleRegistration() {
+        return ClientRegistration.withRegistrationId("google")
+            .clientId("dummy-client-id")
+            .clientSecret("dummy-client-secret")
+            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+            .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+            .redirectUri("http://localhost:4200/auth/google/callback")
+            .scope("openid", "profile", "email")
+            .authorizationUri("https://accounts.google.com/o/oauth2/v2/auth")
+            .tokenUri("https://oauth2.googleapis.com/token")
+            .userInfoUri("https://openidconnect.googleapis.com/v1/userinfo")
+            .userNameAttributeName("sub")
+            .clientName("Google")
+            .build();
     }
 
     private ClientRegistration googleClientRegistration() {

@@ -35,7 +35,8 @@ public class EmailTemplateDto {
     private Double responseRate = 0.0;
     
     private List<String> tags;
-    
+
+
     private Boolean isDefault = false;
     
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")

@@ -1,0 +1,278 @@
+.bulk-email-dialog {
+  min-width: 600px;
+  max-width: 800px;
+
+  .dialog-header {
+    padding: 24px 24px 0;
+
+    h2 {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 8px 0;
+      color: #333;
+
+      mat-icon {
+        color: #3f51b5;
+      }
+    }
+
+    .dialog-subtitle {
+      color: #666;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+  }
+
+  mat-dialog-content {
+    padding: 24px;
+    max-height: 60vh;
+    overflow-y: auto;
+
+    .full-width {
+      width: 100%;
+    }
+
+    .email-composition {
+      .template-variables {
+        margin-top: 16px;
+
+        h4 {
+          margin: 0 0 12px 0;
+          color: #333;
+          font-size: 0.9rem;
+        }
+
+        .variables-list {
+          mat-chip-set {
+            mat-chip {
+              margin-right: 8px;
+              margin-bottom: 4px;
+              background-color: #e3f2fd;
+              color: #1976d2;
+              font-family: monospace;
+              font-size: 0.8rem;
+            }
+          }
+        }
+      }
+    }
+
+    .email-preview {
+      mat-card {
+        .preview-subject {
+          padding: 12px 0;
+          font-size: 1rem;
+        }
+
+        mat-divider {
+          margin: 12px 0;
+        }
+
+        .preview-body {
+          white-space: pre-wrap;
+          line-height: 1.6;
+          padding: 12px 0;
+        }
+      }
+    }
+
+    .scheduling-options {
+      margin-top: 16px;
+
+      h4 {
+        margin: 0 0 16px 0;
+        color: #333;
+        font-size: 1rem;
+      }
+
+      .send-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+
+        .schedule-field {
+          width: 100%;
+          max-width: 300px;
+        }
+
+        .schedule-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px;
+          background-color: #e8f5e8;
+          border-radius: 4px;
+          color: #2e7d32;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+          }
+        }
+      }
+
+      .resume-attachment-section {
+        margin-top: 16px;
+
+        .file-upload-section {
+          margin-top: 12px;
+          padding: 16px;
+          border: 2px dashed #e0e0e0;
+          border-radius: 8px;
+          background-color: #fafafa;
+
+          .file-upload-button {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 8px;
+            padding: 12px 16px;
+            border: 1px solid #d0d0d0;
+            background-color: white;
+
+            &:hover {
+              background-color: #f5f5f5;
+            }
+          }
+
+          .file-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background-color: #e8f5e8;
+            border-radius: 4px;
+            color: #2e7d32;
+
+            mat-icon {
+              font-size: 18px;
+              width: 18px;
+              height: 18px;
+            }
+
+            span {
+              flex: 1;
+              font-size: 0.9rem;
+            }
+
+            button {
+              width: 32px;
+              height: 32px;
+              line-height: 32px;
+
+              mat-icon {
+                font-size: 16px;
+                width: 16px;
+                height: 16px;
+              }
+            }
+          }
+
+          mat-hint {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #666;
+          }
+        }
+      }
+    }
+
+    .confirmation-summary {
+      margin-top: 16px;
+
+      h4 {
+        margin: 0 0 16px 0;
+        color: #333;
+        font-size: 1rem;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+
+        li {
+          margin-bottom: 8px;
+          color: #666;
+
+          strong {
+            color: #333;
+          }
+        }
+      }
+    }
+  }
+
+  mat-dialog-actions {
+    padding: 16px 24px 24px;
+    margin: 0;
+
+    .dialog-actions {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+
+      .left-actions,
+      .right-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        mat-icon {
+          margin-right: 8px;
+        }
+
+        mat-spinner {
+          margin-right: 8px;
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .bulk-email-dialog {
+    min-width: unset;
+    width: 95vw;
+    max-width: unset;
+
+    .dialog-header {
+      padding: 16px 16px 0;
+
+      h2 {
+        font-size: 1.25rem;
+      }
+    }
+
+    mat-dialog-content {
+      padding: 16px;
+
+      .scheduling-options .send-options .schedule-field {
+        max-width: unset;
+      }
+    }
+
+    mat-dialog-actions {
+      padding: 16px;
+
+      .dialog-actions {
+        flex-direction: column;
+        gap: 12px;
+
+        .left-actions,
+        .right-actions {
+          justify-content: stretch;
+
+          button {
+            flex: 1;
+          }
+        }
+      }
+    }
+  }
+}

@@ -30,6 +30,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 // Third party
 import { ToastrModule } from 'ngx-toastr';
@@ -49,7 +50,10 @@ import { EmailTemplatesComponent } from './components/templates/email-templates/
 import { TemplateEditDialogComponent } from './components/templates/template-edit-dialog/template-edit-dialog.component';
 import { TemplatePreviewDialogComponent } from './components/templates/template-preview-dialog/template-preview-dialog.component';
 import { EmailComposeDialogComponent } from './components/email-compose-dialog/email-compose-dialog.component';
+import { ScheduleSendDialogComponent } from './components/schedule-send-dialog/schedule-send-dialog.component';
 import { IncomingEmailsComponent } from './components/emails/incoming-emails/incoming-emails.component';
+import { TemplateRecruiterViewComponent } from './components/recruiters/template-recruiter-view/template-recruiter-view.component';
+import { BulkEmailDialogComponent } from './components/recruiters/bulk-email-dialog/bulk-email-dialog.component';
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 
 @NgModule({
@@ -66,7 +70,10 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
     TemplateEditDialogComponent,
     TemplatePreviewDialogComponent,
     EmailComposeDialogComponent,
-    IncomingEmailsComponent
+    ScheduleSendDialogComponent,
+    IncomingEmailsComponent,
+    TemplateRecruiterViewComponent,
+    BulkEmailDialogComponent
   ],
   imports: [
     BrowserModule,
@@ -102,6 +109,7 @@ import { AuthInterceptor } from './interceptors/auth.interceptor';
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatDividerModule,
+    MatSlideToggleModule,
     MatChipsModule,
     
     // Third party

@@ -313,15 +313,9 @@
       }
     }
 
-    .features-section {
-      .features-card {
-        .feature-list {
-          .feature-item {
-            min-width: 100px;
-            font-size: 0.8rem;
-          }
-        }
-      }
+    .features-section .features-card .feature-list .feature-item {
+      min-width: 100px;
+      font-size: 0.8rem;
     }
   }
 }

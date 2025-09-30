@@ -1,0 +1,154 @@
+<div class="bulk-email-dialog">
+  <div class="dialog-header">
+    <h2 mat-dialog-title>
+      <mat-icon>send</mat-icon>
+      Send Bulk Email - {{ data.dateRange.dateRangeLabel }}
+    </h2>
+    <p class="dialog-subtitle">
+      Sending to {{ data.recruitersCount }} recruiters using template: <strong>{{ data.templateName }}</strong>
+    </p>
+  </div>
+
+  <mat-dialog-content>
+    <form [formGroup]="form">
+      <!-- Email Composition -->
+      <div class="email-composition" *ngIf="!previewMode">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email Subject</mat-label>
+          <input matInput formControlName="subject" placeholder="Enter email subject">
+          <mat-error *ngIf="form.get('subject')?.hasError('required')">
+            Subject is required
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email Body</mat-label>
+          <textarea matInput
+                    formControlName="body"
+                    rows="10"
+                    placeholder="Enter email content...">
+          </textarea>
+          <mat-error *ngIf="form.get('body')?.hasError('required')">
+            Email body is required
+          </mat-error>
+        </mat-form-field>
+
+        <!-- Template Variables Helper -->
+        <mat-card class="template-variables">
+          <mat-card-content>
+            <h4>Available Template Variables:</h4>
+            <div class="variables-list">
+              <mat-chip-set>
+                <mat-chip>{{ '{recruiterName}' }}</mat-chip>
+                <mat-chip>{{ '{companyName}' }}</mat-chip>
+                <mat-chip>{{ '{jobTitle}' }}</mat-chip>
+                <mat-chip>{{ '{senderName}' }}</mat-chip>
+              </mat-chip-set>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Email Preview -->
+      <div class="email-preview" *ngIf="previewMode">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>Email Preview</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="preview-subject">
+              <strong>Subject:</strong> {{ getSubjectPreview() }}
+            </div>
+            <mat-divider></mat-divider>
+            <div class="preview-body" [innerHTML]="getBodyPreview()"></div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Scheduling Options -->
+      <mat-card class="scheduling-options">
+        <mat-card-content>
+          <h4>Send Options</h4>
+
+          <div class="send-options">
+            <mat-checkbox formControlName="useScheduledSend">
+              Schedule for later
+            </mat-checkbox>
+
+            <mat-form-field
+              *ngIf="form.get('useScheduledSend')?.value"
+              appearance="outline"
+              class="schedule-field">
+              <mat-label>Schedule Time</mat-label>
+              <input matInput
+                     type="datetime-local"
+                     formControlName="scheduleTime"
+                     [min]="getMinDateTime()">
+              <mat-error *ngIf="form.get('scheduleTime')?.hasError('required')">
+                Please select a schedule time
+              </mat-error>
+            </mat-form-field>
+
+            <div *ngIf="form.get('useScheduledSend')?.value && form.get('scheduleTime')?.value"
+                 class="schedule-info">
+              <mat-icon>schedule</mat-icon>
+              <span>Will be sent at: {{ getScheduleDateTime() }}</span>
+            </div>
+          </div>
+
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Confirmation Summary -->
+      <mat-card class="confirmation-summary">
+        <mat-card-content>
+          <h4>Summary</h4>
+          <ul>
+            <li><strong>Recipients:</strong> {{ data.recruitersCount }} recruiters</li>
+            <li><strong>Template:</strong> {{ data.templateName }}</li>
+            <li><strong>Date Range:</strong> {{ data.dateRange.dateRangeLabel }}</li>
+            <li><strong>Send Method:</strong>
+              <span *ngIf="!form.get('useScheduledSend')?.value">Send immediately</span>
+              <span *ngIf="form.get('useScheduledSend')?.value">Scheduled for {{ getScheduleDateTime() }}</span>
+            </li>
+          </ul>
+        </mat-card-content>
+      </mat-card>
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions>
+    <div class="dialog-actions">
+      <div class="left-actions">
+        <button mat-button (click)="togglePreview()" type="button">
+          <mat-icon *ngIf="previewMode">edit</mat-icon>
+          <mat-icon *ngIf="!previewMode">preview</mat-icon>
+          <span *ngIf="previewMode">Edit</span>
+          <span *ngIf="!previewMode">Preview</span>
+        </button>
+      </div>
+
+      <div class="right-actions">
+        <button mat-button (click)="onCancel()" type="button">
+          Cancel
+        </button>
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="onSend()"
+          [disabled]="!form.valid || loading"
+          type="button">
+          <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+          <mat-icon *ngIf="!loading">send</mat-icon>
+          <span *ngIf="!loading && form.get('useScheduledSend')?.value">
+            Schedule Send
+          </span>
+          <span *ngIf="!loading && !form.get('useScheduledSend')?.value">
+            Send Now
+          </span>
+          <span *ngIf="loading">Sending...</span>
+        </button>
+      </div>
+    </div>
+  </mat-dialog-actions>
+</div>

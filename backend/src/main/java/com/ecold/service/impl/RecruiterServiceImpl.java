@@ -6,6 +6,7 @@ import com.ecold.entity.User;
 import com.ecold.repository.RecruiterContactRepository;
 import com.ecold.repository.UserRepository;
 import com.ecold.service.RecruiterService;
+import com.ecold.service.RecruiterTemplateAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,6 +33,7 @@ public class RecruiterServiceImpl implements RecruiterService {
 
     private final RecruiterContactRepository recruiterRepository;
     private final UserRepository userRepository;
+    private final RecruiterTemplateAssignmentService assignmentService;
 
     @Override
     public Page<RecruiterContactDto> getRecruiters(int page, int size, String status, String search, String company) {
@@ -101,13 +103,30 @@ public class RecruiterServiceImpl implements RecruiterService {
 
     @Override
     public RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto) {
+        return createRecruiter(recruiterDto, null);
+    }
+
+    @Override
+    public RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto, Long templateId) {
         RecruiterContact recruiter = convertToEntity(recruiterDto);
         User currentUser = getCurrentUser();
         recruiter.setUser(currentUser);
         recruiter.setCreatedAt(LocalDateTime.now());
         recruiter.setUpdatedAt(LocalDateTime.now());
-        
+
         RecruiterContact saved = recruiterRepository.save(recruiter);
+
+        // If templateId is provided, create template assignment
+        if (templateId != null) {
+            try {
+                assignmentService.assignRecruiterToTemplate(saved.getId(), templateId);
+                System.out.println("Successfully assigned recruiter " + saved.getId() + " to template " + templateId);
+            } catch (Exception e) {
+                System.err.println("Failed to assign recruiter " + saved.getId() + " to template " + templateId + ": " + e.getMessage());
+                // Don't fail the recruiter creation if assignment fails
+            }
+        }
+
         return convertToDto(saved);
     }
 
@@ -290,6 +309,28 @@ public class RecruiterServiceImpl implements RecruiterService {
             throw new RuntimeException("Error processing CSV file: " + e.getMessage(), e);
         }
         
+        return imported;
+    }
+
+    @Override
+    public List<RecruiterContactDto> importFromCsv(MultipartFile file, Long templateId) {
+        // Import recruiters normally first
+        List<RecruiterContactDto> imported = importFromCsv(file);
+
+        // If templateId is provided, assign all imported recruiters to the template
+        if (templateId != null && !imported.isEmpty()) {
+            try {
+                List<Long> recruiterIds = imported.stream()
+                    .map(RecruiterContactDto::getId)
+                    .collect(Collectors.toList());
+                assignmentService.bulkAssignRecruitersToTemplate(recruiterIds, templateId);
+                System.out.println("Successfully assigned " + imported.size() + " imported recruiters to template " + templateId);
+            } catch (Exception e) {
+                System.err.println("Failed to assign imported recruiters to template " + templateId + ": " + e.getMessage());
+                // Don't fail the import if assignment fails
+            }
+        }
+
         return imported;
     }
 

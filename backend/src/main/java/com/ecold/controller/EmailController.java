@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,7 +32,6 @@ public class EmailController {
                           UserRepository userRepository) {
         this.emailService = emailService;
         this.userRepository = userRepository;
-        log.info("EmailController initialized with service: {}", emailService.getClass().getSimpleName());
     }
 
     @PostMapping("/send")
@@ -38,24 +39,18 @@ public class EmailController {
             @Valid @RequestBody EmailRequest emailRequest,
             Authentication authentication) {
 
-        System.out.println("=== EMAILCONTROLLER /send ENDPOINT REACHED ===");
-        log.info("EMAIL CONTROLLER: Received send email request for user: {}", authentication.getName());
-        log.info("EMAIL CONTROLLER: Email request details - To: {}, Subject: {}", emailRequest.getTo(), emailRequest.getSubject());
-
         try {
             User currentUser = getCurrentUser(authentication);
-            log.info("EMAIL CONTROLLER: Got current user: {}", currentUser.getEmail());
             EmailResponse response = emailService.sendEmail(emailRequest, currentUser);
-            log.info("EMAIL CONTROLLER: Email service response - Success: {}, Message: {}", response.isSuccess(), response.getMessage());
-            
+
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.badRequest().body(response);
             }
-            
+
         } catch (Exception e) {
-            log.error("EMAIL CONTROLLER: Error sending email: {} - Exception type: {}", e.getMessage(), e.getClass().getSimpleName(), e);
+            log.error("Error sending email: {}", e.getMessage(), e);
             EmailResponse errorResponse = EmailResponse.failure("INTERNAL_ERROR", "Internal server error occurred");
             return ResponseEntity.status(500).body(errorResponse);
         }
@@ -65,19 +60,28 @@ public class EmailController {
     public ResponseEntity<EmailResponse> sendTemplateEmail(
             @RequestParam Long templateId,
             @RequestParam Long recruiterId,
+            @RequestParam(required = false) String scheduleTime,
             @RequestBody(required = false) Map<String, String> additionalData,
             Authentication authentication) {
-        
+
         try {
             User currentUser = getCurrentUser(authentication);
-            EmailResponse response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData);
-            
+            EmailResponse response;
+
+            if (scheduleTime != null && !scheduleTime.trim().isEmpty()) {
+                java.time.Instant instant = java.time.Instant.parse(scheduleTime);
+                LocalDateTime scheduledDateTime = LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
+                response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData, scheduledDateTime);
+            } else {
+                response = emailService.sendTemplateEmail(templateId, recruiterId, currentUser, additionalData);
+            }
+
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.badRequest().body(response);
             }
-            
+
         } catch (Exception e) {
             log.error("Error sending template email: {}", e.getMessage(), e);
             EmailResponse errorResponse = EmailResponse.failure("INTERNAL_ERROR", "Internal server error occurred");
@@ -143,14 +147,6 @@ public class EmailController {
         return ResponseEntity.ok(status);
     }
 
-    @RequestMapping("/debug")
-    public ResponseEntity<String> debugEndpoint(HttpServletRequest request) {
-        System.out.println("=== DEBUG ENDPOINT REACHED ===");
-        System.out.println("Method: " + request.getMethod());
-        System.out.println("URI: " + request.getRequestURI());
-        System.out.println("Query: " + request.getQueryString());
-        return ResponseEntity.ok("Debug endpoint reached");
-    }
 
     private User getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {

@@ -121,6 +121,7 @@ export interface TemplateEditDialogData {
           <input matInput formControlName="tagsInput" placeholder="e.g. software, engineering, cold-outreach">
           <mat-hint>Separate tags with commas</mat-hint>
         </mat-form-field>
+
       </form>
     </mat-dialog-content>
     
@@ -238,13 +239,10 @@ export class TemplateEditDialogComponent implements OnInit {
   saving = false;
   
   availablePlaceholders = [
-    { key: 'recruiterName', label: 'Recruiter Name', placeholder: '{{recruiterName}}', description: 'Name of the recruiter' },
-    { key: 'email', label: 'Recruiter Email', placeholder: '{{recruiterEmail}}', description: 'Email address of the recruiter' },
-    { key: 'companyName', label: 'Company Name', placeholder: '{{companyName}}', description: 'Name of the company' },
-    { key: 'jobRole', label: 'Job Role', placeholder: '{{jobRole}}', description: 'Position/role being applied for' },
-    { key: 'linkedinProfile', label: 'LinkedIn Profile', placeholder: '{{linkedinProfile}}', description: 'LinkedIn profile URL' },
-    { key: 'notes', label: 'Notes', placeholder: '{{notes}}', description: 'Additional notes about the recruiter' },
-    { key: 'status', label: 'Contact Status', placeholder: '{{contactStatus}}', description: 'Current status of the contact' }
+    { key: 'recruiterName', label: 'Recruiter Name', placeholder: '{RecruiterName}', description: 'Name of the recruiter' },
+    { key: 'companyName', label: 'Company Name', placeholder: '{Company}', description: 'Name of the company' },
+    { key: 'jobRole', label: 'Job Role', placeholder: '{Role}', description: 'Position/role being applied for' },
+    { key: 'myName', label: 'My Name', placeholder: '{MyName}', description: 'Your name' }
   ];
 
   constructor(
@@ -348,7 +346,7 @@ export class TemplateEditDialogComponent implements OnInit {
           []
       };
 
-      const saveOperation = this.data.mode === 'create' 
+      const saveOperation = this.data.mode === 'create'
         ? this.templateService.createTemplate(template)
         : this.templateService.updateTemplate(this.data.template!.id!, template);
 
@@ -365,4 +363,5 @@ export class TemplateEditDialogComponent implements OnInit {
       });
     }
   }
+
 }

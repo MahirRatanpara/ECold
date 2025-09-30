@@ -4,11 +4,14 @@ import com.ecold.dto.EmailRequest;
 import com.ecold.dto.EmailResponse;
 import com.ecold.entity.EmailTemplate;
 import com.ecold.entity.RecruiterContact;
+import com.ecold.entity.RecruiterTemplateAssignment;
 import com.ecold.entity.User;
 import com.ecold.repository.EmailTemplateRepository;
 import com.ecold.repository.RecruiterContactRepository;
+import com.ecold.repository.RecruiterTemplateAssignmentRepository;
 import com.ecold.repository.UserRepository;
 import com.ecold.service.EmailService;
+import com.ecold.service.ScheduledEmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -39,18 +42,25 @@ public class EmailServiceImpl implements EmailService {
     private final EmailTemplateRepository templateRepository;
     private final RecruiterContactRepository recruiterRepository;
     private final UserRepository userRepository;
+    private final RecruiterTemplateAssignmentRepository assignmentRepository;
 
     @Qualifier("gmailOAuthService")
     private final EmailService gmailOAuthService;
 
+    private final ScheduledEmailService scheduledEmailService;
+
     public EmailServiceImpl(EmailTemplateRepository templateRepository,
                            RecruiterContactRepository recruiterRepository,
                            UserRepository userRepository,
-                           @Qualifier("gmailOAuthService") EmailService gmailOAuthService) {
+                           RecruiterTemplateAssignmentRepository assignmentRepository,
+                           @Qualifier("gmailOAuthService") EmailService gmailOAuthService,
+                           ScheduledEmailService scheduledEmailService) {
         this.templateRepository = templateRepository;
         this.recruiterRepository = recruiterRepository;
         this.userRepository = userRepository;
+        this.assignmentRepository = assignmentRepository;
         this.gmailOAuthService = gmailOAuthService;
+        this.scheduledEmailService = scheduledEmailService;
     }
     
     @Value("${spring.mail.username:#{null}}")
@@ -64,46 +74,58 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public EmailResponse sendEmail(EmailRequest emailRequest, User user) {
-        log.info("Starting email send process for user: {} to: {}", user.getEmail(), emailRequest.getTo());
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime scheduleTime = emailRequest.getScheduleTime();
 
-        // If user is authenticated with Google and has valid tokens, use Gmail OAuth
-        if (user.getProvider() == User.Provider.GOOGLE && hasValidGmailTokens(user)) {
-            log.info("Using Gmail OAuth for user: {}", user.getEmail());
-            return gmailOAuthService.sendEmail(emailRequest, user);
+        if (scheduleTime != null && scheduleTime.isAfter(now)) {
+            if (user.getProvider() != User.Provider.GOOGLE) {
+                return EmailResponse.failure("SCHEDULE_NOT_SUPPORTED", "Scheduled sending requires Gmail authentication. Please sign in with Google.");
+            }
+
+            if (!hasValidGmailTokens(user)) {
+                return EmailResponse.failure("SCHEDULE_NOT_SUPPORTED", "Scheduled sending requires Gmail authentication. Please sign in with Google.");
+            }
+
+            scheduledEmailService.scheduleEmail(emailRequest, user, emailRequest.getScheduleTime());
+            return EmailResponse.success(null, "Email scheduled successfully for " + emailRequest.getScheduleTime());
         }
 
-        // Fall back to SMTP configuration
-        log.info("Using SMTP configuration for user: {}", user.getEmail());
-        log.info("Email enabled: {}, From email: {}", emailEnabled, fromEmail);
+        if (user.getProvider() == User.Provider.GOOGLE && hasValidGmailTokens(user)) {
+            EmailResponse response = gmailOAuthService.sendEmail(emailRequest, user);
+
+            if (response.isSuccess() && emailRequest.getTemplateId() != null && emailRequest.getRecruiterId() != null) {
+                updateAssignmentEmailCount(emailRequest.getTemplateId(), emailRequest.getRecruiterId(), user);
+            }
+
+            return response;
+        }
 
         if (!emailEnabled) {
-            log.warn("Email sending is disabled in configuration");
             return EmailResponse.failure("EMAIL_DISABLED", "Email sending is disabled in application configuration");
         }
 
-        boolean settingsValid = validateEmailSettings();
-        log.info("Email settings validation result: {}", settingsValid);
-        if (!settingsValid) {
-            log.error("SMTP email configuration not available. User must authenticate with Google OAuth to send emails.");
+        if (!validateEmailSettings()) {
             return EmailResponse.failure("SMTP_NOT_CONFIGURED", "SMTP email is not configured. Please sign in with Google to send emails from your Gmail account.");
         }
 
         try {
             String messageId = generateMessageId();
-            
+
             if (emailRequest.isHtml()) {
                 sendHtmlEmail(emailRequest, user, messageId);
             } else {
                 sendTextEmail(emailRequest, user, messageId);
             }
-            
-            log.info("Email sent successfully to {} with messageId: {}", emailRequest.getTo(), messageId);
+
+            if (emailRequest.getTemplateId() != null && emailRequest.getRecruiterId() != null) {
+                updateAssignmentEmailCount(emailRequest.getTemplateId(), emailRequest.getRecruiterId(), user);
+            }
+
             return EmailResponse.success(messageId, "Email sent successfully");
-            
+
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {} - Exception type: {}", emailRequest.getTo(), e.getMessage(), e.getClass().getSimpleName(), e);
+            log.error("Failed to send email to {}: {}", emailRequest.getTo(), e.getMessage(), e);
             if (e.getMessage() != null && e.getMessage().toLowerCase().contains("forbidden")) {
-                log.error("SMTP Forbidden error detected - check Gmail app password and account settings");
                 return EmailResponse.failure("SMTP_FORBIDDEN", "SMTP authentication failed - check email credentials");
             }
             return EmailResponse.failure("SEND_FAILED", "Failed to send email: " + e.getMessage());
@@ -116,21 +138,21 @@ public class EmailServiceImpl implements EmailService {
             // Get template
             EmailTemplate template = templateRepository.findById(templateId)
                     .orElseThrow(() -> new RuntimeException("Template not found: " + templateId));
-            
+
             // Get recruiter
             RecruiterContact recruiter = recruiterRepository.findById(recruiterId)
                     .orElseThrow(() -> new RuntimeException("Recruiter not found: " + recruiterId));
-            
+
             // Verify ownership
-            if (!template.getUser().getId().equals(user.getId()) || 
+            if (!template.getUser().getId().equals(user.getId()) ||
                 !recruiter.getUser().getId().equals(user.getId())) {
                 return EmailResponse.failure("ACCESS_DENIED", "Access denied to template or recruiter");
             }
-            
+
             // Process template placeholders
             String processedSubject = processPlaceholders(template.getSubject(), recruiter, user, additionalData);
             String processedBody = processPlaceholders(template.getBody(), recruiter, user, additionalData);
-            
+
             // Create email request
             EmailRequest emailRequest = EmailRequest.builder()
                     .to(recruiter.getEmail())
@@ -141,26 +163,86 @@ public class EmailServiceImpl implements EmailService {
                     .recruiterId(recruiterId)
                     .priority(EmailRequest.Priority.NORMAL)
                     .build();
-            
-            EmailResponse response = sendEmail(emailRequest, user);
-            
+
+            // Create email request without template/recruiter info to avoid duplicate counting
+            EmailRequest emailRequestWithoutIds = EmailRequest.builder()
+                    .to(emailRequest.getTo())
+                    .subject(emailRequest.getSubject())
+                    .body(emailRequest.getBody())
+                    .isHtml(emailRequest.isHtml())
+                    .priority(emailRequest.getPriority())
+                    .build();
+
+            EmailResponse response = sendEmail(emailRequestWithoutIds, user);
+
             if (response.isSuccess()) {
                 // Update template usage
                 template.setUsageCount((template.getUsageCount() != null ? template.getUsageCount() : 0L) + 1);
                 template.setEmailsSent((template.getEmailsSent() != null ? template.getEmailsSent() : 0L) + 1);
                 template.setLastUsed(LocalDateTime.now());
                 templateRepository.save(template);
-                
+
                 // Mark recruiter as contacted
                 recruiter.setStatus(RecruiterContact.ContactStatus.CONTACTED);
                 recruiter.setLastContactedAt(LocalDateTime.now());
                 recruiterRepository.save(recruiter);
+
+                // Update assignment email count if assignment exists (only here, not in sendEmail)
+                updateAssignmentEmailCount(templateId, recruiterId, user);
+
+                // Move to follow-up template if applicable
+                moveToFollowUpIfApplicable(templateId, recruiterId, user, template);
             }
-            
+
             return response;
-            
+
         } catch (Exception e) {
             log.error("Failed to send template email: {}", e.getMessage(), e);
+            return EmailResponse.failure("TEMPLATE_SEND_FAILED", "Failed to send template email: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime) {
+        try {
+            EmailTemplate template = templateRepository.findById(templateId)
+                    .orElseThrow(() -> new RuntimeException("Template not found: " + templateId));
+
+            RecruiterContact recruiter = recruiterRepository.findById(recruiterId)
+                    .orElseThrow(() -> new RuntimeException("Recruiter not found: " + recruiterId));
+
+            if (!template.getUser().getId().equals(user.getId()) ||
+                !recruiter.getUser().getId().equals(user.getId())) {
+                return EmailResponse.failure("ACCESS_DENIED", "Access denied to template or recruiter");
+            }
+
+            String processedSubject = processPlaceholders(template.getSubject(), recruiter, user, additionalData);
+            String processedBody = processPlaceholders(template.getBody(), recruiter, user, additionalData);
+
+            EmailRequest emailRequest = EmailRequest.builder()
+                    .to(recruiter.getEmail())
+                    .subject(processedSubject)
+                    .body(processedBody)
+                    .isHtml(false)
+                    .templateId(templateId)
+                    .recruiterId(recruiterId)
+                    .priority(EmailRequest.Priority.NORMAL)
+                    .build();
+
+            if (scheduleTime != null && scheduleTime.isAfter(LocalDateTime.now())) {
+                emailRequest.setScheduleTime(scheduleTime);
+            }
+
+            EmailResponse response = sendEmail(emailRequest, user);
+
+            if (response.isSuccess() && (scheduleTime == null || !scheduleTime.isAfter(LocalDateTime.now()))) {
+                moveToFollowUpIfApplicable(templateId, recruiterId, user, template);
+            }
+
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to send template email {} to recruiter {}: {}", templateId, recruiterId, e.getMessage(), e);
             return EmailResponse.failure("TEMPLATE_SEND_FAILED", "Failed to send template email: " + e.getMessage());
         }
     }
@@ -315,5 +397,75 @@ public class EmailServiceImpl implements EmailService {
                !user.getAccessToken().isEmpty() &&
                (user.getTokenExpiresAt() == null ||
                 user.getTokenExpiresAt().isAfter(LocalDateTime.now()));
+    }
+
+    private void updateAssignmentEmailCount(Long templateId, Long recruiterId, User user) {
+        try {
+            EmailTemplate template = templateRepository.findById(templateId).orElse(null);
+            RecruiterContact recruiter = recruiterRepository.findById(recruiterId).orElse(null);
+
+            if (template == null || recruiter == null) {
+                return;
+            }
+
+            RecruiterTemplateAssignment assignment = assignmentRepository
+                .findByRecruiterContactAndEmailTemplateAndAssignmentStatus(
+                    recruiter, template, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+
+            if (assignment != null) {
+                assignment.setEmailsSent(assignment.getEmailsSent() + 1);
+                assignment.setLastEmailSentAt(LocalDateTime.now());
+                assignmentRepository.save(assignment);
+            }
+        } catch (Exception e) {
+            log.error("Failed to update assignment email count: {}", e.getMessage());
+        }
+    }
+
+    private void moveToFollowUpIfApplicable(Long templateId, Long recruiterId, User user, EmailTemplate currentTemplate) {
+        try {
+            RecruiterTemplateAssignment assignment = assignmentRepository
+                    .findByTemplateIdAndRecruiterIdAndUserId(templateId, recruiterId, user.getId())
+                    .orElse(null);
+
+            if (assignment == null) {
+                return;
+            }
+
+            EmailTemplate followUpTemplate = null;
+
+            if (currentTemplate.getFollowUpTemplate() != null) {
+                followUpTemplate = currentTemplate.getFollowUpTemplate();
+            } else {
+                java.util.List<EmailTemplate> followUpTemplates = templateRepository.findByUserAndCategoryAndStatus(
+                        user,
+                        EmailTemplate.Category.FOLLOW_UP,
+                        EmailTemplate.Status.ACTIVE
+                );
+
+                if (!followUpTemplates.isEmpty()) {
+                    followUpTemplate = followUpTemplates.get(0);
+                }
+            }
+
+            if (followUpTemplate != null) {
+                RecruiterTemplateAssignment followUpAssignment = new RecruiterTemplateAssignment();
+                followUpAssignment.setRecruiterContact(assignment.getRecruiterContact());
+                followUpAssignment.setEmailTemplate(followUpTemplate);
+                followUpAssignment.setUser(assignment.getUser());
+                followUpAssignment.setWeekAssigned(assignment.getWeekAssigned());
+                followUpAssignment.setYearAssigned(assignment.getYearAssigned());
+                followUpAssignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+                followUpAssignment.setEmailsSent(assignment.getEmailsSent());
+                followUpAssignment.setLastEmailSentAt(assignment.getLastEmailSentAt());
+
+                assignmentRepository.save(followUpAssignment);
+
+                assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
+                assignmentRepository.save(assignment);
+            }
+        } catch (Exception e) {
+            log.error("Error moving to follow-up: {}", e.getMessage());
+        }
     }
 }

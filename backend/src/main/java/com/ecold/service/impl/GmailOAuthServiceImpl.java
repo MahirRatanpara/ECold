@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.gmail.Gmail;
+import com.google.api.services.gmail.model.Draft;
 import com.google.api.services.gmail.model.Message;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service("gmailOAuthService")
@@ -39,7 +41,7 @@ public class GmailOAuthServiceImpl implements EmailService {
 
     @Override
     public EmailResponse sendEmail(EmailRequest emailRequest, User user) {
-        log.info("Sending email via Gmail OAuth for user: {} to: {}", user.getEmail(), emailRequest.getTo());
+        log.info("Sending email immediately via Gmail OAuth for user: {} to: {}", user.getEmail(), emailRequest.getTo());
 
         try {
             // Check if user has valid Gmail tokens
@@ -74,6 +76,12 @@ public class GmailOAuthServiceImpl implements EmailService {
 
     @Override
     public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData) {
+        // This will be implemented by the main EmailServiceImpl which can delegate to this service
+        throw new UnsupportedOperationException("Template email sending should be handled by EmailServiceImpl");
+    }
+
+    @Override
+    public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime) {
         // This will be implemented by the main EmailServiceImpl which can delegate to this service
         throw new UnsupportedOperationException("Template email sending should be handled by EmailServiceImpl");
     }
@@ -161,6 +169,7 @@ public class GmailOAuthServiceImpl implements EmailService {
         Message sentMessage = gmailService.users().messages().send("me", message).execute();
         return sentMessage.getId();
     }
+
 
     private MimeMessage createMimeMessage(EmailRequest emailRequest, User user) throws MessagingException, UnsupportedEncodingException {
         Properties props = new Properties();

@@ -12,26 +12,59 @@
     <div class="action-buttons">
       <button mat-raised-button color="primary" (click)="openAddDialog()">
         <mat-icon>add</mat-icon>
-        Add Recruiter
+        {{ viewMode === 'template' && selectedTemplate ? 'Add to ' + selectedTemplate.name : 'Add Recruiter' }}
       </button>
       <button mat-stroked-button (click)="openImportDialog()">
         <mat-icon>upload_file</mat-icon>
-        Import CSV
+        {{ viewMode === 'template' && selectedTemplate ? 'Import to ' + selectedTemplate.name : 'Import CSV' }}
       </button>
     </div>
   </div>
 
-  <!-- Search and Filter Section -->
+  <!-- Template and Filter Section -->
   <div class="filter-section">
     <mat-card>
       <mat-card-content>
-        <div class="filter-controls">
+        <!-- Template Selection Row -->
+        <div class="template-selection-row">
+          <mat-form-field appearance="outline" class="template-dropdown">
+            <mat-label>Select Template</mat-label>
+            <mat-select [(ngModel)]="selectedTemplate" (selectionChange)="onTemplateSelectionChange()">
+              <mat-option [value]="null">All Recruiters</mat-option>
+              <mat-option *ngFor="let template of templates" [value]="template">
+                {{template.name}}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field *ngIf="selectedTemplate && weekSummaries.length > 0" appearance="outline" class="week-dropdown">
+            <mat-label>Select Week</mat-label>
+            <mat-select [(ngModel)]="selectedWeek" (selectionChange)="onWeekSelectionChange()">
+              <mat-option [value]="null">All Weeks</mat-option>
+              <mat-option *ngFor="let week of weekSummaries" [value]="week">
+                {{week.dateRangeLabel}} ({{week.recruitersCount}} recruiters)
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button *ngIf="selectedTemplate && selectedWeek !== null"
+                  mat-raised-button
+                  color="primary"
+                  (click)="sendBulkEmailToWeek()"
+                  matTooltip="Send bulk email to all recruiters in this week">
+            <mat-icon>mail</mat-icon>
+            Bulk Email Week
+          </button>
+        </div>
+
+        <!-- Standard Filter Controls -->
+        <div class="filter-controls" *ngIf="viewMode === 'all'">
           <mat-form-field class="search-field" appearance="outline">
             <mat-label>Search recruiters...</mat-label>
             <input matInput [(ngModel)]="searchQuery" (input)="applyFilter()" placeholder="Search by name, email, or company">
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
-          
+
           <mat-form-field appearance="outline">
             <mat-label>Status</mat-label>
             <mat-select [(ngModel)]="selectedStatus" (selectionChange)="applyFilter()">
@@ -43,7 +76,7 @@
               <mat-option value="HIRED">Hired</mat-option>
             </mat-select>
           </mat-form-field>
-          
+
           <mat-form-field appearance="outline">
             <mat-label>Company</mat-label>
             <mat-select [(ngModel)]="selectedCompany" (selectionChange)="applyFilter()">
@@ -51,7 +84,7 @@
               <mat-option *ngFor="let company of uniqueCompanies" [value]="company">{{company}}</mat-option>
             </mat-select>
           </mat-form-field>
-          
+
           <button mat-icon-button (click)="clearFilters()" matTooltip="Clear filters">
             <mat-icon>clear</mat-icon>
           </button>
@@ -106,6 +139,12 @@
           </div>
           <div class="bulk-actions" *ngIf="selection.hasValue()">
             <span class="selected-count">{{ selection.selected.length }} selected</span>
+            <button mat-icon-button
+                    (click)="assignSelectedToTemplate()"
+                    matTooltip="Assign to template"
+                    *ngIf="viewMode === 'all' && templates.length > 0">
+              <mat-icon>assignment</mat-icon>
+            </button>
             <button mat-icon-button color="warn" (click)="bulkDelete()" matTooltip="Delete selected">
               <mat-icon>delete</mat-icon>
             </button>

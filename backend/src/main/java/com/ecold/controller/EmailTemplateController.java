@@ -6,6 +6,7 @@ import com.ecold.service.EmailTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
 import java.util.List;
@@ -14,7 +15,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/email-templates")
 @RequiredArgsConstructor
-@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:3000"})
+@CrossOrigin(origins = {"http://localhost:4200", "http://localhost:4201", "http://localhost:3000"})
 public class EmailTemplateController {
 
     private final EmailTemplateService emailTemplateService;
@@ -137,4 +138,5 @@ public class EmailTemplateController {
         emailTemplateService.clearAllTemplates();
         return ResponseEntity.ok().build();
     }
+
 }

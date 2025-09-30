@@ -11,19 +11,28 @@ import com.ecold.exception.UserAlreadyExistsException;
 import com.ecold.repository.UserRepository;
 import com.ecold.service.AuthService;
 import com.ecold.service.GoogleOAuthService;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
-    private final GoogleOAuthService googleOAuthService;
+
+    @Autowired(required = false)
+    private GoogleOAuthService googleOAuthService;
+
+    public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+    }
 
     @Override
     public UserDto signup(SignupRequest signupRequest) {
@@ -85,7 +94,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String getGoogleAuthUrl() {
-        return googleOAuthService.getAuthorizationUrl();
+        if (googleOAuthService != null) {
+            return googleOAuthService.getAuthorizationUrl();
+        }
+        log.warn("Google OAuth service not available - OAuth configuration incomplete");
+        throw new AuthenticationException("Google OAuth not configured");
     }
 
     @Override
@@ -96,7 +109,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse processGoogleCallback(String code) {
-        return googleOAuthService.processCallback(code);
+        if (googleOAuthService != null) {
+            return googleOAuthService.processCallback(code);
+        }
+        log.warn("Google OAuth service not available - OAuth configuration incomplete");
+        throw new AuthenticationException("Google OAuth not configured");
     }
 
     @Override

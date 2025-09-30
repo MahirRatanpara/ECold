@@ -27,7 +27,7 @@ export class RecruiterEditDialogComponent implements OnInit {
     private recruiterService: RecruiterService,
     private snackBar: MatSnackBar,
     public dialogRef: MatDialogRef<RecruiterEditDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { recruiter?: RecruiterContact }
+    @Inject(MAT_DIALOG_DATA) public data: { recruiter?: RecruiterContact; templateId?: number }
   ) {
     this.isEditMode = !!data?.recruiter;
     this.editForm = this.createForm();
@@ -70,7 +70,7 @@ export class RecruiterEditDialogComponent implements OnInit {
 
       const request = this.isEditMode
         ? this.recruiterService.updateRecruiter(this.data.recruiter!.id, formData)
-        : this.recruiterService.createRecruiter(formData);
+        : this.recruiterService.createRecruiter(formData, this.data.templateId);
 
       request.subscribe({
         next: (result) => {

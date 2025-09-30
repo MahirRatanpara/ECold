@@ -9,6 +9,9 @@ import { RecruiterEditDialogComponent } from '../recruiter-edit-dialog/recruiter
 import { RecruiterViewDialogComponent } from '../recruiter-view-dialog/recruiter-view-dialog.component';
 import { BulkStatusDialogComponent } from '../bulk-status-dialog/bulk-status-dialog.component';
 import { EmailComposeDialogComponent, EmailComposeResult } from '../../email-compose-dialog/email-compose-dialog.component';
+import { EmailTemplateService, EmailTemplate } from '../../../services/email-template.service';
+import { RecruiterTemplateAssignmentService, RecruiterTemplateAssignment, PagedAssignmentResponse, TemplateWeekSummary } from '../../../services/recruiter-template-assignment.service';
+import { BulkEmailDialogComponent } from '../bulk-email-dialog/bulk-email-dialog.component';
 
 @Component({
   selector: 'app-recruiter-list',
@@ -21,17 +24,26 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
   recruiters: RecruiterContact[] = [];
   dataSource = new MatTableDataSource<RecruiterContact>();
   selection = new SelectionModel<RecruiterContact>(true, []);
-  
+
   loading = false;
   loadingMore = false;
   error: string | null = null;
-  
+
+  // Template-based view
+  templates: EmailTemplate[] = [];
+  selectedTemplate: EmailTemplate | null = null;
+  templateAssignments: RecruiterTemplateAssignment[] = [];
+  weekSummaries: TemplateWeekSummary[] = [];
+  selectedWeek: TemplateWeekSummary | null = null;
+  selectedYear: number = new Date().getFullYear();
+  viewMode: 'all' | 'template' = 'all';
+
   // Infinite scrolling
   currentPage = 0;
   pageSize = 20;
   hasMore = true;
   totalElements = 0;
-  
+
   // Filtering
   searchQuery = '';
   selectedStatus = '';
@@ -52,11 +64,14 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
 
   constructor(
     private recruiterService: RecruiterService,
+    private emailTemplateService: EmailTemplateService,
+    private templateAssignmentService: RecruiterTemplateAssignmentService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) { }
 
   ngOnInit(): void {
+    this.loadTemplates();
     this.loadRecruiters();
   }
 
@@ -272,22 +287,145 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.loadingMore || !this.hasMore) {
       return;
     }
-    
+
     this.currentPage++;
-    this.loadRecruiters(true);
+    if (this.viewMode === 'template' && this.selectedTemplate) {
+      this.loadTemplateRecruiters(true);
+    } else {
+      this.loadRecruiters(true);
+    }
   }
 
   resetAndReload(): void {
     this.currentPage = 0;
     this.hasMore = true;
     this.recruiters = [];
-    
+    this.templateAssignments = [];
+
     // Clean up intersection observer before reloading
     if (this.intersectionObserver) {
       this.intersectionObserver.disconnect();
     }
-    
-    this.loadRecruiters(false);
+
+    if (this.viewMode === 'template' && this.selectedTemplate) {
+      this.loadTemplateRecruiters(false);
+    } else {
+      this.loadRecruiters(false);
+    }
+  }
+
+  loadTemplates(): void {
+    this.emailTemplateService.getActiveTemplates().subscribe({
+      next: (templates) => {
+        this.templates = templates;
+      },
+      error: (error: any) => {
+        console.error('Error loading templates:', error);
+        this.snackBar.open('Failed to load templates', 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+      }
+    });
+  }
+
+  onTemplateSelectionChange(): void {
+    this.selectedWeek = null;
+    this.weekSummaries = [];
+
+    if (this.selectedTemplate) {
+      this.viewMode = 'template';
+      this.loadWeekSummaries();
+      this.resetAndReload();
+    } else {
+      this.viewMode = 'all';
+      this.resetAndReload();
+    }
+  }
+
+  onWeekSelectionChange(): void {
+    this.resetAndReload();
+  }
+
+  loadWeekSummaries(): void {
+    if (!this.selectedTemplate) return;
+
+    this.templateAssignmentService.getDateRangeSummariesForTemplate(this.selectedTemplate.id!).subscribe({
+      next: (summaries: any) => {
+        this.weekSummaries = summaries;
+      },
+      error: (error: any) => {
+        console.error('Error loading date range summaries:', error);
+      }
+    });
+  }
+
+  loadTemplateRecruiters(append: boolean = false): void {
+    if (!this.selectedTemplate) return;
+
+    if (append) {
+      this.loadingMore = true;
+    } else {
+      this.loading = true;
+      this.error = null;
+    }
+
+    let observable;
+    if (this.selectedWeek !== null && typeof this.selectedWeek === 'object') {
+      observable = this.templateAssignmentService.getRecruitersForTemplateAndDateRange(
+        this.selectedTemplate.id!,
+        this.selectedWeek.startDate,
+        this.selectedWeek.endDate,
+        this.currentPage,
+        this.pageSize
+      );
+    } else {
+      observable = this.templateAssignmentService.getRecruitersForTemplate(
+        this.selectedTemplate.id!,
+        this.currentPage,
+        this.pageSize
+      );
+    }
+
+    observable.subscribe({
+      next: (response: PagedAssignmentResponse) => {
+        if (append) {
+          this.templateAssignments = [...this.templateAssignments, ...response.content];
+        } else {
+          this.templateAssignments = response.content;
+        }
+
+        // Convert assignments to recruiters for display
+        const recruiters = this.templateAssignments.map(assignment => assignment.recruiterContact);
+
+        if (append) {
+          this.recruiters = [...this.recruiters, ...recruiters];
+        } else {
+          this.recruiters = recruiters;
+        }
+
+        this.totalElements = response.totalElements;
+        this.hasMore = !response.last;
+
+        this.dataSource.data = this.recruiters;
+        this.selection.clear();
+        this.updateUniqueCompanies();
+
+        this.loading = false;
+        this.loadingMore = false;
+
+        if (!append) {
+          setTimeout(() => this.setupIntersectionObserver(), 100);
+        }
+      },
+      error: (error: any) => {
+        this.error = 'Failed to load recruiters for template. Please try again.';
+        this.loading = false;
+        this.loadingMore = false;
+        console.error('Template recruiters load error:', error);
+      }
+    });
   }
 
   applyFilter(): void {
@@ -333,7 +471,10 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
     const dialogRef = this.dialog.open(RecruiterEditDialogComponent, {
       width: '600px',
       disableClose: true,
-      data: { recruiter: null }
+      data: {
+        recruiter: null,
+        templateId: this.viewMode === 'template' && this.selectedTemplate ? this.selectedTemplate.id : undefined
+      }
     });
 
     dialogRef.afterClosed().subscribe(result => {
@@ -369,18 +510,23 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
 
   private importRecruitersFromFile(file: File): void {
     this.loading = true;
-    this.recruiterService.importRecruiters(file).subscribe({
+
+    // Get template ID if in template mode
+    const templateId = this.viewMode === 'template' && this.selectedTemplate ? this.selectedTemplate.id : undefined;
+
+    this.recruiterService.importRecruiters(file, templateId).subscribe({
       next: (response: any) => {
         this.loading = false;
         const count = response.count || response.length || 0;
-        this.snackBar.open(`Successfully imported ${count} recruiters!`, 'Close', {
+        const templateMessage = templateId ? ` and assigned to template "${this.selectedTemplate?.name}"` : '';
+        this.snackBar.open(`Successfully imported ${count} recruiters${templateMessage}!`, 'Close', {
           duration: 5000,
           horizontalPosition: 'right',
           verticalPosition: 'top'
         });
         this.resetAndReload(); // Reload the list
       },
-      error: (error) => {
+      error: (error: any) => {
         this.loading = false;
         let errorMessage = 'Failed to import CSV file. Please check the format and try again.';
         
@@ -457,7 +603,7 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
           this.selection.clear();
           this.resetAndReload();
         },
-        error: (error) => {
+        error: (error: any) => {
           console.error('Bulk delete error:', error);
           this.snackBar.open('Failed to delete selected recruiters', 'Close', {
             duration: 5000,
@@ -491,7 +637,7 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
             this.selection.clear();
             this.resetAndReload();
           },
-          error: (error) => {
+          error: (error: any) => {
             console.error('Bulk status update error:', error);
             this.snackBar.open('Failed to update status for selected recruiters', 'Close', {
               duration: 5000,
@@ -531,11 +677,22 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
 
 
   sendEmail(recruiter: RecruiterContact): void {
+    // Find assignment ID if this is a template-based view
+    let assignmentId: number | undefined;
+    if (this.viewMode === 'template' && this.templateAssignments.length > 0) {
+      const assignment = this.templateAssignments.find(a => a.recruiterContact.id === recruiter.id);
+      assignmentId = assignment?.id;
+    }
+
     const dialogRef = this.dialog.open(EmailComposeDialogComponent, {
       width: '800px',
       maxWidth: '90vw',
       disableClose: true,
-      data: { recruiter: recruiter }
+      data: {
+        recruiter: recruiter,
+        defaultTemplate: this.selectedTemplate,
+        assignmentId: assignmentId
+      }
     });
 
     dialogRef.afterClosed().subscribe((result: EmailComposeResult) => {
@@ -555,7 +712,7 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
               verticalPosition: 'top'
             });
           },
-          error: (error) => {
+          error: (error: any) => {
             console.error('Error marking recruiter as contacted:', error);
             this.snackBar.open('Email sent but failed to update contact status', 'Close', {
               duration: 5000,
@@ -563,6 +720,90 @@ export class RecruiterListComponent implements OnInit, AfterViewInit, OnDestroy 
               verticalPosition: 'top'
             });
           }
+        });
+      }
+    });
+  }
+
+  sendBulkEmailToWeek(): void {
+    if (!this.selectedTemplate || this.selectedWeek === null) {
+      this.snackBar.open('Please select a template and week', 'Close', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(BulkEmailDialogComponent, {
+      width: '800px',
+      maxWidth: '90vw',
+      disableClose: true,
+      data: {
+        templateId: this.selectedTemplate.id,
+        templateName: this.selectedTemplate.name,
+        week: this.selectedWeek,
+        year: this.selectedYear,
+        recruitersCount: this.totalElements
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.snackBar.open('Bulk email sent successfully!', 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        // Reload to show updated status
+        this.resetAndReload();
+      }
+    });
+  }
+
+  assignSelectedToTemplate(): void {
+    if (this.selection.selected.length === 0) {
+      this.snackBar.open('Please select recruiters to assign', 'Close', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    // Create a simple template selection dialog
+    const availableTemplates = this.templates.filter(t => t.id !== this.selectedTemplate?.id);
+
+    if (availableTemplates.length === 0) {
+      this.snackBar.open('No other templates available for assignment', 'Close', {
+        duration: 3000,
+        horizontalPosition: 'right',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    // For now, let's assign to the first available template
+    // In a real implementation, you'd want a proper template selection dialog
+    const templateId = availableTemplates[0].id!;
+    const recruiterIds = this.selection.selected.map(r => r.id);
+
+    this.templateAssignmentService.bulkAssignRecruitersToTemplate(recruiterIds, templateId).subscribe({
+      next: (assignments) => {
+        this.snackBar.open(`Successfully assigned ${assignments.length} recruiters to ${availableTemplates[0].name}`, 'Close', {
+          duration: 3000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
+        });
+        this.selection.clear();
+        this.resetAndReload();
+      },
+      error: (error: any) => {
+        console.error('Bulk assignment error:', error);
+        this.snackBar.open('Failed to assign recruiters to template', 'Close', {
+          duration: 5000,
+          horizontalPosition: 'right',
+          verticalPosition: 'top'
         });
       }
     });
