@@ -72,28 +72,11 @@ public class ScheduledEmailServiceImpl implements ScheduledEmailService {
         LocalDateTime now = LocalDateTime.now();
         log.info("=== SCHEDULER RUNNING === Checking for scheduled emails at {}", now);
 
-        // First, check all scheduled emails in the database
-        List<ScheduledEmail> allScheduled = scheduledEmailRepository.findAll();
-        log.info("=== TOTAL EMAILS IN DATABASE: {} ===", allScheduled.size());
-
-        for (ScheduledEmail email : allScheduled) {
-            log.info("  Email ID: {}, Status: {}, ScheduleTime: {}, Recipient: {}",
-                email.getId(), email.getStatus(), email.getScheduleTime(), email.getRecipientEmail());
-            if (email.getScheduleTime() != null) {
-                log.info("    ScheduleTime <= now? {}", email.getScheduleTime().isBefore(now) || email.getScheduleTime().isEqual(now));
-            }
-        }
-
-        // Find all emails that are scheduled and due to be sent
         log.info("=== QUERYING FOR DUE EMAILS === Status: SCHEDULED, CurrentTime: {}", now);
         List<ScheduledEmail> dueEmails = scheduledEmailRepository.findDueScheduledEmails(
             ScheduledEmail.Status.SCHEDULED, now);
 
         log.info("=== FOUND {} SCHEDULED EMAILS DUE ===", dueEmails.size());
-
-        if (!dueEmails.isEmpty()) {
-            log.info("Found {} emails ready to be sent", dueEmails.size());
-        }
 
         for (ScheduledEmail scheduledEmail : dueEmails) {
             try {

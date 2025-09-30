@@ -91,10 +91,16 @@ management:
 
 logging:
   level:
+    root: WARN
     com.ecold: ${LOG_LEVEL:INFO}
-    org.springframework.security: INFO
-    org.hibernate.SQL: WARN
-    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: ERROR
+    org.hibernate.type: ERROR
+    org.hibernate.type.descriptor.sql: ERROR
+    org.hibernate.orm.jdbc.bind: ERROR
+    com.zaxxer.hikari: WARN
 
 app:
   jwt:

@@ -112,29 +112,21 @@ public class RecruiterTemplateAssignmentController {
                     String personalizedSubject = personalizeContent(request.getSubject(), assignment);
                     String personalizedBody = personalizeContent(request.getBody(), assignment);
 
-                    // Get recruiter email from the assignment
                     String recipientEmail = assignment.getRecruiterContact() != null ?
                         assignment.getRecruiterContact().getEmail() : null;
 
                     if (recipientEmail == null) {
-                        System.err.println("No email found for assignment " + assignment.getId());
                         continue;
                     }
 
-                    // Send the email
-                    byte[] resumeAttachment = null; // TODO: Get user's resume if needed
+                    byte[] resumeAttachment = null;
                     emailSendService.sendEmail(recipientEmail, personalizedSubject, personalizedBody,
                             resumeAttachment, request.isUseScheduledSend(), request.getScheduleTime());
 
-                    // Mark email as sent
                     assignmentService.markEmailSent(assignment.getId());
 
-                    // Move to follow-up template if applicable
-                    assignmentService.moveRecruiterToFollowupTemplate(assignment.getId());
-
                 } catch (Exception e) {
-                    // Log error but continue with other emails
-                    System.err.println("Failed to send email to assignment " + assignment.getId() + ": " + e.getMessage());
+                    // Continue with other emails
                 }
             }
 
