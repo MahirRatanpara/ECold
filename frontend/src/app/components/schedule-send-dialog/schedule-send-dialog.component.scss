@@ -1,0 +1,127 @@
+/* Simple, Clean Schedule Dialog */
+.schedule-dialog {
+  width: 400px;
+  max-width: 90vw;
+}
+
+/* Header */
+h2[mat-dialog-title] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #1976d2;
+  font-size: 18px;
+  font-weight: 500;
+
+  mat-icon {
+    font-size: 20px;
+  }
+}
+
+/* Content */
+mat-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.description {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  padding: 12px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  border-left: 3px solid #ff9800;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* Presets */
+.presets {
+  h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+  }
+
+  .preset-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .preset-btn {
+      font-size: 12px;
+      padding: 4px 12px;
+      background: #f5f5f5;
+      color: #666;
+      border: 1px solid #ddd;
+      border-radius: 16px;
+
+      &:hover {
+        background: #e3f2fd;
+        color: #1976d2;
+        border-color: #1976d2;
+      }
+    }
+  }
+}
+
+/* Preview */
+.preview {
+  mat-card {
+    background: #e8f5e8;
+    border: 1px solid #4caf50;
+
+    .preview-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      mat-icon {
+        color: #4caf50;
+      }
+
+      div {
+        font-size: 14px;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+/* Actions */
+mat-dialog-actions {
+  gap: 8px;
+  padding: 16px 0 0 0;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .schedule-dialog {
+    width: 100%;
+  }
+
+  .preset-buttons {
+    justify-content: center;
+
+    .preset-btn {
+      flex: 1;
+      min-width: 80px;
+    }
+  }
+
+  mat-dialog-actions {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+    }
+  }
+}
