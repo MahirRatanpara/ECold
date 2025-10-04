@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database - Production Configuration
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecold_postgres_prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecold}
+      POSTGRES_USER: ${POSTGRES_USER:-ecold_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - ecold_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ecold_user} -d ${POSTGRES_DB:-ecold}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis Cache - Production Configuration
+  redis:
+    image: redis:7-alpine
+    container_name: ecold_redis_prod
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?Redis password required}
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - ecold_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Spring Boot Backend - Production Configuration
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      args:
+        - MAVEN_OPTS=-XX:+TieredCompilation -XX:TieredStopAtLevel=1
+    container_name: ecold_backend_prod
+    environment:
+      # Database Configuration
+      DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecold}
+      DATABASE_USERNAME: ${POSTGRES_USER:-ecold_user}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
+
+      # OAuth Configuration
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Google Client ID required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?Google Client Secret required}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+
+      # Application Configuration
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${JWT_SECRET:?JWT secret required}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+
+      # Server Configuration
+      SERVER_PORT: 8080
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://yourdomain.com}
+
+      # JVM Configuration
+      JAVA_OPTS: >
+        -Xms512m
+        -Xmx1024m
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+        -XX:+UseStringDeduplication
+
+    volumes:
+      - upload_data:/app/uploads
+      - logs_data:/app/logs
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    networks:
+      - ecold_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Angular Frontend - Production Configuration
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        - CONFIGURATION=production
+    container_name: ecold_frontend_prod
+    environment:
+      - NGINX_HOST=${DOMAIN_NAME:-localhost}
+      - BACKEND_URL=http://backend:8080
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_SSL_PORT:-443}:443"
+    networks:
+      - ecold_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+
+networks:
+  ecold_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  upload_data:
+    driver: local
+  logs_data:
+    driver: local

@@ -1,189 +1,206 @@
-# ECold - Email Cold Outreach & Lead Tracking System
+# ECold - Email Cold Outreach & Lead Tracking Platform
 
-## 🚀 Business Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/)
+[![Angular](https://img.shields.io/badge/Angular-17-red.svg)](https://angular.io/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-ECold is a comprehensive email automation and job application tracking platform designed to streamline the job search process for professionals. The platform automates cold email outreach to recruiters while intelligently tracking and categorizing incoming job-related emails.
+> A comprehensive email automation and job application tracking platform that streamlines cold outreach to recruiters while intelligently tracking and categorizing incoming job-related emails.
 
-## 🎯 Core Business Value
+## 🚀 Quick Start
 
-### For Job Seekers
-- **Automated Outreach**: Send personalized emails to hundreds of recruiters with minimal manual effort
-- **Smart Tracking**: Never lose track of applications across multiple job portals
-- **Intelligent Categorization**: Automatically organize incoming emails (interviews, rejections, opportunities)
-- **Analytics & Insights**: Track response rates, optimize outreach strategies
-- **Time Savings**: Reduce job application time from hours to minutes
+### Prerequisites
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed
+- Google OAuth credentials ([Setup Guide](docs/setup/OAUTH_SETUP_GUIDE.md))
 
-### For Recruitment Consultants
-- **Candidate Pipeline**: Manage outreach to potential candidates
-- **Response Tracking**: Monitor engagement rates and optimize messaging
-- **Template Management**: Reuse proven email templates across campaigns
+### Start the Application
 
-## 🏢 Business Model
+**Windows:**
+```bash
+scripts\start.bat
+```
 
-### Target Market
-- **Primary**: Job seekers (fresh graduates, career changers, professionals)
-- **Secondary**: Recruitment consultants, career coaches
-- **Enterprise**: HR departments for reverse recruiting
+**Linux/Mac:**
+```bash
+./scripts/start.sh
+```
 
-### Revenue Streams
-1. **Freemium Model**: Basic features free, premium for advanced automation
-2. **Subscription Tiers**: 
-   - Basic: 50 emails/month, 1 template
-   - Pro: 500 emails/month, unlimited templates, analytics
-   - Enterprise: Unlimited emails, team collaboration, API access
-3. **Integration Partnerships**: Revenue share with job portals and CRM systems
+### Access Points
+- **Frontend**: http://localhost:4200
+- **Backend API**: http://localhost:8080/api
+- **Database Admin**: http://localhost:5050 (admin@ecold.com / admin123)
 
-## 📊 Key Features & Business Benefits
+## 📋 Features
 
-### Email Campaign Management
-- **Business Impact**: 10x increase in recruiter outreach efficiency
-- **Features**: 
-  - Bulk email campaigns with personalization
-  - Scheduling and rate limiting
-  - A/B testing for subject lines and content
-  - Deliverability optimization
+### ✨ Core Capabilities
+- **🎯 Template-Based Management**: Organize recruiters with customizable email templates
+- **📧 Bulk Email Automation**: Send personalized emails with dynamic variables
+- **📅 Smart Scheduling**: Gmail API integration for scheduled email delivery
+- **🔄 Follow-up Automation**: Automatic progression through follow-up templates
+- **📊 Week-wise Organization**: Group recruiters by weeks with infinite scroll
+- **📎 Resume Attachments**: Support for PDF/DOC/DOCX with validation
+- **🔔 Smart Categorization**: AI-powered email classification (Interviews, Updates, Rejections)
+- **📈 Analytics Dashboard**: Track response rates and campaign performance
 
-### Intelligent Email Classification
-- **Business Impact**: 90% reduction in email sorting time
-- **Categories**:
-  - 🌟 **Interview Calls**: High priority, immediate alerts
-  - 📋 **Application Updates**: Status tracking, pipeline management
-  - 🤝 **Recruiter Outreach**: New opportunities identification
-  - ❌ **Rejections**: Learning insights, campaign optimization
-  - 📧 **General Inquiries**: Automated responses, lead qualification
+### 🔐 Security & Integration
+- OAuth 2.0 authentication (Google & Microsoft)
+- JWT-based session management
+- Gmail & Outlook API integration
+- Redis caching for performance
+- PostgreSQL database with full-text search
 
-### Analytics & Reporting
-- **Response Rate Tracking**: Optimize email templates and timing
-- **Campaign Performance**: ROI analysis for different outreach strategies
-- **Recruiter Insights**: Identify high-converting companies and roles
-- **Timeline Visualization**: Job application journey mapping
+## 📁 Project Structure
 
-### Multi-Platform Integration
-- **Gmail/Outlook**: Seamless email management
-- **Job Portals**: Integration with Naukri, LinkedIn, Indeed
-- **CRM Systems**: Export leads to existing sales pipelines
-- **Calendar Apps**: Automatic interview scheduling
+```
+ECold/
+├── backend/              # Spring Boot application
+│   ├── src/             # Java source code
+│   └── Dockerfile       # Backend container
+├── frontend/            # Angular application
+│   ├── src/             # TypeScript/Angular code
+│   └── Dockerfile       # Frontend container
+├── database/            # Database initialization
+│   └── init.sql         # Schema & sample data
+├── infra/               # Infrastructure configuration
+│   ├── docker-compose.yml           # Development setup
+│   ├── docker-compose.prod.yml      # Production setup
+│   ├── .env.example                 # Development env template
+│   └── .env.production              # Production env template
+├── scripts/             # Utility scripts
+│   ├── start.sh         # Start script (Linux/Mac)
+│   ├── start.bat        # Start script (Windows)
+│   └── setup-email.sh   # Email configuration helper
+├── docs/                # Documentation
+│   ├── setup/           # Setup guides
+│   ├── guides/          # Feature guides
+│   ├── testing/         # Test cases
+│   ├── ARCHITECTURE.md  # Technical architecture
+│   └── DOCKER.md        # Docker guide
+├── README.md            # This file
+├── Requirements.md      # Project requirements
+└── setup.md             # Detailed setup guide
+```
 
-## 🎯 Competitive Advantage
+## 🛠️ Technology Stack
 
-### Technology Edge
-- **AI-Powered Categorization**: 95% accuracy in email classification
-- **OAuth Security**: Enterprise-grade security with major email providers
-- **Scalable Architecture**: Handle millions of emails with cloud deployment
-- **Real-time Processing**: Instant email classification and notifications
+### Backend
+- **Framework**: Spring Boot 3.2.0
+- **Language**: Java 17
+- **Database**: PostgreSQL 15
+- **Cache**: Redis 7
+- **Security**: Spring Security + OAuth 2.0
+- **Email**: Gmail API, Microsoft Graph API
+- **Scheduler**: Quartz
 
-### Business Advantages
-- **First-Mover**: Comprehensive solution in underserved job automation market
-- **Network Effects**: Growing database of recruiter contacts and email patterns
-- **Data Insights**: Valuable job market intelligence for users and partners
-- **Platform Strategy**: Extensible architecture for additional HR tools
+### Frontend
+- **Framework**: Angular 17
+- **Language**: TypeScript 5.2
+- **UI**: Angular Material 17
+- **Charts**: Chart.js
+- **State**: RxJS
 
-## 💰 Market Opportunity
+### DevOps
+- **Containerization**: Docker & Docker Compose
+- **Build**: Maven (Backend), Angular CLI (Frontend)
+- **Monitoring**: Spring Boot Actuator
 
-### Total Addressable Market (TAM)
-- Global job search market: $28 billion
-- Email marketing automation: $15 billion
-- HR tech market: $30 billion
+## 📖 Documentation
 
-### Serviceable Addressable Market (SAM)
-- English-speaking job seekers using email: 200 million users
-- Average spend on job search tools: $50-200/year
-- Market size: $10-40 billion
+### Setup & Configuration
+- [Complete Setup Guide](setup.md) - Detailed local and production setup
+- [Docker Setup](docs/DOCKER.md) - Docker-specific instructions
+- [OAuth Configuration](docs/setup/OAUTH_SETUP_GUIDE.md) - Google/Microsoft OAuth setup
+- [Email Setup](docs/setup/EMAIL_SETUP_GUIDE.md) - Email provider configuration
 
-### Serviceable Obtainable Market (SOM)
-- Target 1% market share in 5 years
-- Estimated users: 2 million
-- Revenue potential: $100-400 million annually
+### Technical Documentation
+- [Architecture Overview](docs/ARCHITECTURE.md) - System architecture and design
+- [Requirements](Requirements.md) - Project requirements and specifications
+- [Email Templates](docs/guides/EMAIL_TEMPLATE_INTEGRATION.md) - Template system guide
 
-## 🛣️ Roadmap & Growth Strategy
+### Testing
+- [Test Cases](docs/testing/TestCases.md) - Comprehensive test scenarios
 
-### Phase 1: MVP (Months 1-6)
-- Core email automation and tracking
-- Gmail integration
-- Basic analytics dashboard
-- 1,000 beta users
+## 🚀 Deployment
 
-### Phase 2: Scale (Months 6-18)
-- Microsoft Outlook integration
-- Mobile applications (iOS/Android)
-- Advanced AI categorization
-- 50,000 paying users
+### Development
+```bash
+# Start development environment
+./scripts/start.sh  # or start.bat on Windows
 
-### Phase 3: Platform (Months 18-36)
-- Job portal integrations
-- Team collaboration features
-- Enterprise solutions
-- API marketplace
-- 500,000 users
+# View logs
+cd infra && docker-compose logs -f
 
-### Phase 4: Ecosystem (Year 3+)
-- Career coaching marketplace
-- Recruitment consultant network
-- HR partnership program
-- International expansion
+# Stop services
+cd infra && docker-compose down
+```
 
-## 📈 Success Metrics
+### Production
 
-### User Acquisition
-- Monthly Active Users (MAU)
-- Customer Acquisition Cost (CAC)
-- User referral rate
-- Trial to paid conversion
+1. **Configure environment:**
+```bash
+cd infra
+cp .env.production .env
+# Edit .env with production credentials
+```
 
-### Engagement
-- Emails sent per user
-- Platform daily usage
-- Feature adoption rates
-- Email open/response rates
+2. **Deploy with Docker Compose:**
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
-### Business
-- Monthly Recurring Revenue (MRR)
-- Customer Lifetime Value (CLV)
-- Churn rate
-- Net Promoter Score (NPS)
+3. **For cloud deployment**, see [Setup Guide](setup.md#production-deployment)
 
-## 🤝 Partnership Opportunities
+## 🔧 Development
 
-### Strategic Partners
-- **Job Portals**: LinkedIn, Indeed, Glassdoor
-- **Email Providers**: Google Workspace, Microsoft 365
-- **HR Platforms**: Workday, BambooHR, Greenhouse
-- **Career Services**: Universities, bootcamps, coaching platforms
+### Backend Development
+```bash
+cd backend
+mvn clean install
+mvn spring-boot:run
+```
 
-### Integration Benefits
-- Expanded user acquisition channels
-- Enhanced platform value proposition
-- Revenue sharing opportunities
-- Data enrichment partnerships
+### Frontend Development
+```bash
+cd frontend
+npm install
+npm start
+```
 
-## 🏆 Why ECold Will Succeed
+### Database Access
+```bash
+# Connect to PostgreSQL
+cd infra && docker-compose exec postgres psql -U ecold_user -d ecold
 
-### Market Timing
-- Remote work increasing job search complexity
-- Growing demand for automation tools
-- Millennial/Gen Z comfort with AI assistance
-- Increasing job market competition
+# PgAdmin UI
+http://localhost:5050
+```
 
-### Team Advantage
-- Deep understanding of job search pain points
-- Technical expertise in email automation
-- Experience with scalable SaaS platforms
-- Strong network in HR/recruitment industry
+## 🤝 Contributing
 
-### Execution Plan
-- Rapid MVP development and iteration
-- User-centric feature development
-- Strong focus on security and deliverability
-- Community building and content marketing
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-## 🎉 Getting Started
+## 📝 License
 
-Ready to revolutionize your job search? Get started with ECold today!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-1. **Sign up** with your Google or Microsoft account
-2. **Import** your recruiter contacts from CSV or Excel
-3. **Create** your first email template
-4. **Launch** your automated outreach campaign
-5. **Track** responses and optimize your approach
+## 🙏 Acknowledgments
 
-Transform your job search from a time-consuming chore into an efficient, data-driven process with ECold!
+- Spring Boot for the robust backend framework
+- Angular team for the amazing frontend framework
+- Gmail & Microsoft Graph APIs for email integration
+- Docker for containerization support
+
+## 📞 Support
+
+For issues and questions:
+- 📧 Email: support@ecold.com
+- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/ecold/issues)
+- 📖 Documentation: [docs/](docs/)
+
+---
+
+**Built with ❤️ by the ECold Team**

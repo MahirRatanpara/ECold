@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ecold_pass123
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5432:5432"
     healthcheck:
@@ -37,7 +37,7 @@ services:
 
   # Spring Boot Backend
   backend:
-    build: ./backend
+    build: ../backend
     container_name: ecold_backend
     environment:
       # Database
@@ -74,7 +74,7 @@ services:
 
   # Angular Frontend
   frontend:
-    build: ./frontend
+    build: ../frontend
     container_name: ecold_frontend
     ports:
       - "4200:80"
