@@ -13,7 +13,6 @@ If you prefer manual setup without Docker:
 - **Java 17** or higher
 - **Node.js 18** or higher
 - **PostgreSQL 13** or higher
-- **Redis 6** or higher
 - **Maven 3.8** or higher
 - **Angular CLI 17** or higher
 
@@ -54,18 +53,16 @@ docker-compose logs -f
 - **Backend API**: http://localhost:8080/api
 - **API Documentation**: http://localhost:8080/api/swagger-ui.html
 - **PgAdmin**: http://localhost:5050 (admin@ecold.com / admin123)
-- **Redis Insight**: http://localhost:8001
 
 ### 5. Optional Development Tools
 
 ```bash
 # Start additional development tools
-docker-compose --profile tools up -d pgadmin redis-insight mailhog
+docker-compose --profile tools up -d pgadmin mailhog
 
 # Access tools:
 # - Mailhog (email testing): http://localhost:8025
 # - PgAdmin (database management): http://localhost:5050
-# - Redis Insight (cache management): http://localhost:8001
 ```
 
 ## 📋 Essential Docker Commands
@@ -106,7 +103,7 @@ docker-compose exec -T postgres psql -U ecold_user ecold < backup.sql
 
 ```bash
 # Start development tools
-docker-compose --profile tools up -d pgadmin redis-insight mailhog
+docker-compose --profile tools up -d pgadmin mailhog
 
 # Access backend container
 docker-compose exec backend sh
@@ -121,13 +118,11 @@ The Docker setup includes:
 
 ### Core Services
 - **PostgreSQL 15**: Pre-configured with ECold schema and sample data
-- **Redis 7**: Optimized for caching with custom configuration
 - **Spring Boot Backend**: API server with all dependencies
 - **Angular Frontend**: Nginx-served SPA with proxy configuration
 
 ### Optional Tools (with `--profile tools`)
 - **PgAdmin 4**: Database administration interface
-- **Redis Insight**: Redis monitoring and management
 - **Mailhog**: Email testing service
 
 ## 🗄️ Database Setup
@@ -145,16 +140,6 @@ The PostgreSQL container comes pre-configured with:
 - Sample data for immediate testing
 - Health checks and monitoring
 - Backup and restore capabilities
-
-## ⚡ Redis Configuration
-
-The Redis container includes:
-
-- **Persistence**: Both RDB and AOF enabled
-- **Memory Management**: 256MB limit with LRU eviction
-- **Monitoring**: Slow query logging and latency monitoring
-- **Sample Cache**: Pre-loaded development data
-- **Configuration**: Production-ready settings
 
 ## 🔐 OAuth Setup
 
@@ -333,11 +318,6 @@ services:
     ports:
       - "5432:5432"
 
-  redis:
-    image: redis:6-alpine
-    ports:
-      - "6379:6379"
-
   backend:
     build:
       context: ./backend
@@ -346,14 +326,12 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/ecold
       DATABASE_USERNAME: ecold_user
       DATABASE_PASSWORD: your_password
-      REDIS_HOST: redis
       GOOGLE_CLIENT_ID: your_client_id
       GOOGLE_CLIENT_SECRET: your_client_secret
     ports:
       - "8080:8080"
     depends_on:
       - postgres
-      - redis
 
   frontend:
     build:
@@ -396,21 +374,12 @@ docker-compose up -d
 
 ### Performance Optimization
 
-1. **Enable Redis caching:**
-   ```bash
-   # Install Redis
-   docker run -d -p 6379:6379 redis:6-alpine
-   
-   # Set environment variable
-   export REDIS_HOST=localhost
-   ```
-
-2. **Database optimization:**
+1. **Database optimization:**
    - Create indexes for frequently queried fields
    - Configure connection pooling
    - Enable query optimization
 
-3. **Frontend optimization:**
+2. **Frontend optimization:**
    - Enable AOT compilation in production
    - Use lazy loading for routes
    - Implement OnPush change detection strategy

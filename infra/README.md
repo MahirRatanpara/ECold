@@ -39,7 +39,6 @@ cp .env.production .env
 
 2. **Configure all required variables:**
 - Database credentials
-- Redis password
 - OAuth credentials
 - JWT secret (strong random key)
 - Domain configuration
@@ -54,7 +53,6 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### docker-compose.yml (Development)
 - PostgreSQL with sample data
-- Redis for caching
 - Backend (Spring Boot)
 - Frontend (Angular)
 - PgAdmin (optional with `--profile tools`)
@@ -74,7 +72,6 @@ docker-compose -f docker-compose.prod.yml up -d
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 - `JWT_SECRET` - Secret key for JWT tokens (min 32 chars)
 - `POSTGRES_PASSWORD` - Database password
-- `REDIS_PASSWORD` - Redis password
 
 #### Optional
 - `MICROSOFT_CLIENT_ID` - Microsoft OAuth (optional)
@@ -89,11 +86,6 @@ docker-compose -f docker-compose.prod.yml up -d
 - **Database**: ecold
 - **User**: ecold_user
 - **Init**: Automatic schema creation from `../database/init.sql`
-
-### Redis
-- **Port**: 6379
-- **Persistence**: RDB + AOF
-- **Max Memory**: 256MB (dev) / 512MB (prod)
 
 ### Backend
 - **Port**: 8080
@@ -163,7 +155,6 @@ docker-compose -f docker-compose.prod.yml exec -T postgres \
 - [ ] Use strong JWT secret (min 32 chars, random)
 - [ ] Configure HTTPS/TLS certificates
 - [ ] Set up firewall rules
-- [ ] Enable Redis password authentication
 - [ ] Configure CORS allowed origins
 - [ ] Review and limit exposed ports
 - [ ] Set up monitoring and alerts
@@ -183,12 +174,10 @@ docker-compose -f docker-compose.prod.yml exec -T postgres \
 ### Horizontal Scaling
 - Backend: Scale with `docker-compose up -d --scale backend=3`
 - Add load balancer (nginx/HAProxy)
-- Shared Redis for session management
 - Database replication for read scaling
 
 ### Resource Limits (Production)
 - PostgreSQL: 1 CPU, 1GB RAM
-- Redis: 0.5 CPU, 512MB RAM
 - Backend: 2 CPU, 2GB RAM
 - Frontend: 1 CPU, 512MB RAM
 

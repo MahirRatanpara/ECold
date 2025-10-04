@@ -189,7 +189,6 @@
 - Java 17 or higher
 - Spring Boot 3.2.0
 - PostgreSQL 15 database
-- Redis 7 for caching
 - OAuth 2.0 security
 - RESTful API design
 - Swagger/OpenAPI documentation
@@ -233,7 +232,6 @@
 - XSS protection
 
 ### 8.6 Performance ✅
-- Redis caching layer
 - Database query optimization
 - Connection pooling
 - Lazy loading (frontend)
@@ -287,7 +285,6 @@
 - Horizontal scaling support
 - Load balancing ready
 - Database replication support
-- Caching strategy
 - Microservices architecture (future)
 - Message queue integration (future)
 

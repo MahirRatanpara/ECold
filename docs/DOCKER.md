@@ -120,7 +120,6 @@ docker-compose exec backend ./mvnw test
 - **Backend**: Spring Boot with OAuth, email integration, batch processing
 - **Frontend**: Angular with Material Design, real-time dashboard
 - **Database**: PostgreSQL with sample data
-- **Cache**: Redis for sessions and rate limiting
 - **UI**: PgAdmin for database management (optional)
 
 ## 🔧 Configuration
@@ -139,7 +138,6 @@ JWT_SECRET=your_secret_key
 - `4200` - Frontend (Angular)
 - `8080` - Backend (Spring Boot)
 - `5432` - Database (PostgreSQL) 
-- `6379` - Cache (Redis)
 - `5050` - PgAdmin (optional)
 
 ## 🐛 Troubleshooting

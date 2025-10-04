@@ -20,21 +20,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: ecold_redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    volumes:
-      - redis_data:/data
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # Spring Boot Backend
   backend:
     build: ../backend
@@ -44,11 +29,7 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/ecold
       DATABASE_USERNAME: ecold_user
       DATABASE_PASSWORD: ecold_pass123
-      
-      # Redis
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      
+
       # OAuth (from .env file)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
@@ -63,8 +44,6 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
@@ -102,5 +81,4 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   upload_data:

@@ -57,29 +57,40 @@ CREATE TABLE IF NOT EXISTS recruiter_contacts (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS email_campaigns (
+CREATE TABLE IF NOT EXISTS recruiter_template_assignments (
     id BIGSERIAL PRIMARY KEY,
+    recruiter_id BIGINT NOT NULL REFERENCES recruiter_contacts(id) ON DELETE CASCADE,
+    template_id BIGINT NOT NULL REFERENCES email_templates(id) ON DELETE CASCADE,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    template_id BIGINT REFERENCES email_templates(id),
-    resume_id BIGINT REFERENCES resumes(id),
-    status VARCHAR(50) DEFAULT 'DRAFT',
-    schedule_type VARCHAR(50) DEFAULT 'ONE_TIME',
-    scheduled_at TIMESTAMP,
-    batch_size INTEGER DEFAULT 5,
-    daily_limit INTEGER DEFAULT 50,
-    cc_emails TEXT,
-    bcc_emails TEXT,
-    total_recipients INTEGER DEFAULT 0,
-    sent_count INTEGER DEFAULT 0,
-    failed_count INTEGER DEFAULT 0,
+    week_assigned INTEGER NOT NULL,
+    year_assigned INTEGER NOT NULL,
+    assignment_status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+    emails_sent INTEGER DEFAULT 0,
+    last_email_sent_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS scheduled_emails (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_email VARCHAR(255) NOT NULL,
+    subject VARCHAR(500) NOT NULL,
+    body TEXT NOT NULL,
+    schedule_time TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(50) NOT NULL DEFAULT 'SCHEDULED',
+    template_id BIGINT,
+    recruiter_id BIGINT,
+    error_message TEXT,
+    sent_at TIMESTAMP,
+    message_id VARCHAR(255),
+    is_html BOOLEAN DEFAULT FALSE,
+    priority VARCHAR(20)
+);
+
 CREATE TABLE IF NOT EXISTS email_logs (
     id BIGSERIAL PRIMARY KEY,
-    campaign_id BIGINT REFERENCES email_campaigns(id),
     recruiter_contact_id BIGINT REFERENCES recruiter_contacts(id),
     recipient_email VARCHAR(255) NOT NULL,
     subject VARCHAR(500) NOT NULL,
@@ -118,151 +129,15 @@ CREATE TABLE IF NOT EXISTS incoming_emails (
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_recruiters_user_id ON recruiter_contacts(user_id);
-CREATE INDEX IF NOT EXISTS idx_email_logs_campaign ON email_logs(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_recruiter_template_assignments_user ON recruiter_template_assignments(user_id);
+CREATE INDEX IF NOT EXISTS idx_recruiter_template_assignments_recruiter ON recruiter_template_assignments(recruiter_id);
+CREATE INDEX IF NOT EXISTS idx_recruiter_template_assignments_template ON recruiter_template_assignments(template_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_emails_user ON scheduled_emails(user_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_emails_status ON scheduled_emails(status);
+CREATE INDEX IF NOT EXISTS idx_scheduled_emails_schedule_time ON scheduled_emails(schedule_time);
+CREATE INDEX IF NOT EXISTS idx_email_logs_recruiter ON email_logs(recruiter_contact_id);
 CREATE INDEX IF NOT EXISTS idx_incoming_emails_user_id ON incoming_emails(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_incoming_emails_unique ON incoming_emails(user_id, message_id);
-
--- Quartz Scheduler Tables
-CREATE TABLE IF NOT EXISTS qrtz_job_details
-(
-    sched_name varchar(120) not null,
-    job_name varchar(80) not null,
-    job_group varchar(80) not null,
-    description varchar(250) null,
-    job_class_name varchar(250) not null,
-    is_durable bool not null,
-    is_nonconcurrent bool not null,
-    is_update_data bool not null,
-    requests_recovery bool not null,
-    job_data bytea null,
-    primary key (sched_name,job_name,job_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_triggers
-(
-    sched_name varchar(120) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    job_name varchar(80) not null,
-    job_group varchar(80) not null,
-    description varchar(250) null,
-    next_fire_time bigint null,
-    prev_fire_time bigint null,
-    priority integer null,
-    execution_group varchar(80) null,
-    trigger_state varchar(16) not null,
-    trigger_type varchar(8) not null,
-    start_time bigint not null,
-    end_time bigint null,
-    calendar_name varchar(80) null,
-    misfire_instr smallint null,
-    job_data bytea null,
-    primary key (sched_name,trigger_name,trigger_group),
-    foreign key (sched_name,job_name,job_group) references qrtz_job_details(sched_name,job_name,job_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_simple_triggers
-(
-    sched_name varchar(120) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    repeat_count bigint not null,
-    repeat_interval bigint not null,
-    times_triggered bigint not null,
-    primary key (sched_name,trigger_name,trigger_group),
-    foreign key (sched_name,trigger_name,trigger_group) references qrtz_triggers(sched_name,trigger_name,trigger_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_cron_triggers
-(
-    sched_name varchar(120) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    cron_expression varchar(120) not null,
-    time_zone_id varchar(80),
-    primary key (sched_name,trigger_name,trigger_group),
-    foreign key (sched_name,trigger_name,trigger_group) references qrtz_triggers(sched_name,trigger_name,trigger_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_simprop_triggers
-(
-    sched_name varchar(120) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    str_prop_1 varchar(512) null,
-    str_prop_2 varchar(512) null,
-    str_prop_3 varchar(512) null,
-    int_prop_1 int null,
-    int_prop_2 int null,
-    long_prop_1 bigint null,
-    long_prop_2 bigint null,
-    dec_prop_1 numeric(13,4) null,
-    dec_prop_2 numeric(13,4) null,
-    bool_prop_1 bool null,
-    bool_prop_2 bool null,
-    primary key (sched_name,trigger_name,trigger_group),
-    foreign key (sched_name,trigger_name,trigger_group) references qrtz_triggers(sched_name,trigger_name,trigger_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_blob_triggers
-(
-    sched_name varchar(120) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    blob_data bytea null,
-    primary key (sched_name,trigger_name,trigger_group),
-    foreign key (sched_name,trigger_name,trigger_group) references qrtz_triggers(sched_name,trigger_name,trigger_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_calendars
-(
-    sched_name varchar(120) not null,
-    calendar_name varchar(80) not null,
-    calendar bytea not null,
-    primary key (sched_name,calendar_name)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_paused_trigger_grps
-(
-    sched_name varchar(120) not null,
-    trigger_group varchar(80) not null,
-    primary key (sched_name,trigger_group)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_fired_triggers
-(
-    sched_name varchar(120) not null,
-    entry_id varchar(95) not null,
-    trigger_name varchar(80) not null,
-    trigger_group varchar(80) not null,
-    instance_name varchar(80) not null,
-    fired_time bigint not null,
-    sched_time bigint not null,
-    priority integer not null,
-    execution_group varchar(80) null,
-    state varchar(16) not null,
-    job_name varchar(80) null,
-    job_group varchar(80) null,
-    is_nonconcurrent bool null,
-    requests_recovery bool null,
-    primary key (sched_name,entry_id)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_scheduler_state
-(
-    sched_name varchar(120) not null,
-    instance_name varchar(80) not null,
-    last_checkin_time bigint not null,
-    checkin_interval bigint not null,
-    primary key (sched_name,instance_name)
-);
-
-CREATE TABLE IF NOT EXISTS qrtz_locks
-(
-    sched_name varchar(120) not null,
-    lock_name varchar(40) not null,
-    primary key (sched_name,lock_name)
-);
 
 -- Insert sample data
 INSERT INTO users (email, name, provider, provider_id, created_at) VALUES 
