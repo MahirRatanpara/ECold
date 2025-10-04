@@ -15,12 +15,11 @@
                         │ (Google/MS)     │
                         └─────────────────┘
                                  │
-                    ┌────────────┴────────────┐
-                    │                         │
-            ┌───────▼────────┐      ┌────────▼────────┐
-            │  Gmail/Outlook │      │    Redis Cache  │
-            │   (Email API)  │      │   (Sessions)    │
-            └────────────────┘      └─────────────────┘
+                                 │
+                        ┌────────▼────────┐
+                        │  Gmail/Outlook  │
+                        │   (Email API)   │
+                        └─────────────────┘
 ```
 
 ### Technology Stack
@@ -30,10 +29,8 @@
 - **Language**: Java 17 (LTS)
 - **Security**: Spring Security + OAuth 2.0
 - **Database**: PostgreSQL (Primary), H2 (Development)
-- **Caching**: Redis (Production), In-Memory (Development)
 - **Email Integration**: Gmail API, Microsoft Graph API
-- **Job Scheduling**: Quartz Scheduler
-- **Batch Processing**: Spring Batch
+- **Job Scheduling**: Spring @Scheduled
 - **Documentation**: OpenAPI/Swagger
 - **Testing**: JUnit 5, Mockito, TestContainers
 
@@ -248,19 +245,11 @@ public class TokenEncryption {
 ```java
 @Component
 public class RateLimitingService {
-    
-    @Cacheable(value = "rate_limit", key = "#userId")
+
     public boolean checkRateLimit(Long userId, int maxRequests) {
-        // Redis-based rate limiting implementation
-        String key = "rate_limit:" + userId;
-        String count = redisTemplate.opsForValue().get(key);
-        
-        if (count == null) {
-            redisTemplate.opsForValue().set(key, "1", Duration.ofHours(1));
-            return true;
-        }
-        
-        return Integer.parseInt(count) < maxRequests;
+        // Rate limiting implementation
+        // Check against database or in-memory store
+        return true;
     }
 }
 ```
@@ -379,33 +368,6 @@ public class ScheduledTasks {
 ```
 
 ## 🚀 Performance Optimizations
-
-### Caching Strategy
-```java
-@Configuration
-@EnableCaching
-public class CacheConfig {
-    
-    @Bean
-    public CacheManager cacheManager() {
-        RedisCacheManager.Builder builder = RedisCacheManager
-            .RedisCacheManagerBuilder
-            .fromConnectionFactory(redisConnectionFactory())
-            .cacheDefaults(cacheConfiguration());
-        
-        return builder.build();
-    }
-    
-    private RedisCacheConfiguration cacheConfiguration() {
-        return RedisCacheConfiguration.defaultCacheConfig()
-            .entryTtl(Duration.ofMinutes(10))
-            .serializeKeysWith(RedisSerializationContext.SerializationPair
-                .fromSerializer(new StringRedisSerializer()))
-            .serializeValuesWith(RedisSerializationContext.SerializationPair
-                .fromSerializer(new GenericJackson2JsonRedisSerializer()));
-    }
-}
-```
 
 ### Database Optimizations
 ```java
@@ -538,14 +500,6 @@ services:
     ports:
       - "5432:5432"
 
-  redis:
-    image: redis:6-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-
   backend:
     build:
       context: ./backend
@@ -553,13 +507,10 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/ecold
       DATABASE_USERNAME: ecold_user
       DATABASE_PASSWORD: ecold_pass
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
     ports:
       - "8080:8080"
     depends_on:
       - postgres
-      - redis
     volumes:
       - ./uploads:/app/uploads
 
@@ -573,7 +524,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
 ```
 
 ## 🧪 Testing Strategy
@@ -682,8 +632,7 @@ Phase 3: Microservices + Event-Driven
 ├── API Gateway
 ├── Individual Services with Own Databases
 ├── Event Bus (Kafka/RabbitMQ)
-├── CQRS + Event Sourcing
-└── Distributed Caching (Redis Cluster)
+└── CQRS + Event Sourcing
 ```
 
 This technical architecture provides a solid foundation for building a scalable, maintainable, and secure email automation platform while maintaining flexibility for future enhancements and scaling requirements.

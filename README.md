@@ -46,7 +46,6 @@ scripts\start.bat
 - OAuth 2.0 authentication (Google & Microsoft)
 - JWT-based session management
 - Gmail & Outlook API integration
-- Redis caching for performance
 - PostgreSQL database with full-text search
 
 ## 📁 Project Structure
@@ -87,10 +86,9 @@ ECold/
 - **Framework**: Spring Boot 3.2.0
 - **Language**: Java 17
 - **Database**: PostgreSQL 15
-- **Cache**: Redis 7
 - **Security**: Spring Security + OAuth 2.0
 - **Email**: Gmail API, Microsoft Graph API
-- **Scheduler**: Quartz
+- **Scheduler**: Spring @Scheduled
 
 ### Frontend
 - **Framework**: Angular 17

@@ -31,37 +31,6 @@ services:
           cpus: '0.5'
           memory: 512M
 
-  # Redis Cache - Production Configuration
-  redis:
-    image: redis:7-alpine
-    container_name: ecold_redis_prod
-    command: >
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD:?Redis password required}
-      --maxmemory 512mb
-      --maxmemory-policy allkeys-lru
-      --save 900 1
-      --save 300 10
-      --save 60 10000
-    volumes:
-      - redis_data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    networks:
-      - ecold_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-
   # Spring Boot Backend - Production Configuration
   backend:
     build:
@@ -75,11 +44,6 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-ecold}
       DATABASE_USERNAME: ${POSTGRES_USER:-ecold_user}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Database password required}
-
-      # Redis Configuration
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
 
       # OAuth Configuration
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?Google Client ID required}
@@ -113,8 +77,6 @@ services:
       - ecold_network
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/actuator/health"]
@@ -169,8 +131,6 @@ networks:
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
   upload_data:
     driver: local
