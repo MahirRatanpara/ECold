@@ -17,7 +17,6 @@ import org.springframework.util.StringUtils;
 @Configuration
 public class OAuthConfig {
 
-    private final LoggersEndpoint loggersEndpoint;
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
 
@@ -26,10 +25,6 @@ public class OAuthConfig {
 
     @Value("${spring.security.oauth2.client.registration.google.redirect-uri}")
     private String googleRedirectUri;
-
-    public OAuthConfig(LoggersEndpoint loggersEndpoint) {
-        this.loggersEndpoint = loggersEndpoint;
-    }
 
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository() {
