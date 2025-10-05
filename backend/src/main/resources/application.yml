@@ -1,27 +1,7 @@
 spring:
   application:
     name: ecold-backend
-  
-  datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ecold}
-    username: ${DATABASE_USERNAME:ecold_user}
-    password: ${DATABASE_PASSWORD:ecold_pass123}
-    driver-class-name: ${DATABASE_DRIVER:org.postgresql.Driver}
-  
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: ${DATABASE_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
-  
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  
+
   security:
     oauth2:
       client:
@@ -83,12 +63,21 @@ logging:
     com.ecold: ${LOG_LEVEL:INFO}
     org.springframework.web: WARN
     org.springframework.security: WARN
-    org.hibernate: WARN
-    org.hibernate.SQL: ERROR
-    org.hibernate.type: ERROR
-    org.hibernate.type.descriptor.sql: ERROR
-    org.hibernate.orm.jdbc.bind: ERROR
-    com.zaxxer.hikari: WARN
+
+# Firebase/Firestore Configuration
+google:
+  cloud:
+    project-id: ${GOOGLE_CLOUD_PROJECT_ID:ecold-app-d3990}
+    firestore:
+      credentials-path: ${FIRESTORE_CREDENTIALS_PATH:classpath:firestore-key.json}
+
+# Firestore Retry Configuration
+firestore:
+  retry:
+    max-attempts: ${FIRESTORE_RETRY_MAX_ATTEMPTS:5}        # Maximum retry attempts
+    initial-delay-ms: ${FIRESTORE_RETRY_INITIAL_DELAY:100}  # Initial delay before first retry
+    max-delay-ms: ${FIRESTORE_RETRY_MAX_DELAY:60000}        # Maximum delay between retries
+    timeout-ms: ${FIRESTORE_RETRY_TIMEOUT:30000}            # Timeout for each attempt
 
 app:
   jwt:

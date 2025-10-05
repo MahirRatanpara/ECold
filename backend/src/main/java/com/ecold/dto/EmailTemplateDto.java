@@ -11,7 +11,7 @@ import java.util.List;
 
 @Data
 public class EmailTemplateDto {
-    private Long id;
+    private String id;
     
     @NotBlank(message = "Template name is required")
     private String name;

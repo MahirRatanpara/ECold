@@ -2,12 +2,11 @@ package com.ecold.service.impl;
 
 import com.ecold.entity.IncomingEmail;
 import com.ecold.entity.User;
-import com.ecold.repository.IncomingEmailRepository;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.IncomingEmailFirestoreRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import com.ecold.service.IncomingEmailService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.gmail.Gmail;
 import com.google.api.services.gmail.model.ListMessagesResponse;
@@ -19,22 +18,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class IncomingEmailServiceImpl implements IncomingEmailService {
-    
-    private final IncomingEmailRepository incomingEmailRepository;
-    private final UserRepository userRepository;
+
+    private final IncomingEmailFirestoreRepository incomingEmailRepository;
+    private final UserFirestoreRepository userRepository;
     
     private static final Set<String> JOB_KEYWORDS = Set.of(
         "application", "shortlisted", "interview", "resume", "recruiter", "hr", "position", 
@@ -52,23 +50,25 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
     );
     
     @Override
-    @Transactional
     public void scanIncomingEmails(User user) {
         try {
             Gmail gmail = createGmailService(user);
-            
+
             String query = "is:unread newer_than:7d";
             ListMessagesResponse response = gmail.users().messages().list("me").setQ(query).execute();
-            
+
             if (response.getMessages() != null) {
                 for (com.google.api.services.gmail.model.Message messageRef : response.getMessages()) {
                     Message message = gmail.users().messages().get("me", messageRef.getId()).execute();
-                    
-                    if (!incomingEmailRepository.existsByUserAndMessageId(user, message.getId())) {
+
+                    if (!incomingEmailRepository.existsByUserAndMessageId(user.getId(), message.getId())) {
                         processGmailMessage(user, message);
                     }
                 }
             }
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to scan incoming emails for user {}: {}", user.getEmail(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("Failed to scan incoming emails for user {}: {}", user.getEmail(), e.getMessage(), e);
         }
@@ -117,48 +117,82 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
     
     @Override
     public Page<IncomingEmail> getIncomingEmails(User user, int page, int size) {
-        return incomingEmailRepository.findByUser(user, PageRequest.of(page, size));
+        try {
+            return incomingEmailRepository.findByUser(user.getId(), PageRequest.of(page, size));
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to get incoming emails for user {}: {}", user.getEmail(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to get incoming emails", e);
+        }
     }
     
     @Override
     public Page<IncomingEmail> getIncomingEmailsByCategory(User user, IncomingEmail.EmailCategory category, int page, int size) {
-        return incomingEmailRepository.findByUserAndCategory(user, category, PageRequest.of(page, size));
+        try {
+            return incomingEmailRepository.findByUserAndCategory(user.getId(), category.name(), PageRequest.of(page, size));
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to get incoming emails by category for user {}: {}", user.getEmail(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to get incoming emails by category", e);
+        }
     }
     
     @Override
     public List<IncomingEmail> getUnreadEmails(User user) {
-        return incomingEmailRepository.findByUserAndIsReadFalse(user);
+        try {
+            return incomingEmailRepository.findUnreadByUser(user.getId());
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to get unread emails for user {}: {}", user.getEmail(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to get unread emails", e);
+        }
     }
     
     @Override
-    @Transactional
     public void markAsRead(Long emailId) {
-        IncomingEmail email = incomingEmailRepository.findById(emailId)
-            .orElseThrow(() -> new RuntimeException("Email not found"));
-        email.setRead(true);
-        incomingEmailRepository.save(email);
+        // Note: With Firestore, we need userId to access the email
+        // This method signature should ideally be updated to include userId or User
+        // For now, we'll need to search across all users (inefficient) or update the interface
+        throw new UnsupportedOperationException(
+            "markAsRead(Long) is not supported with Firestore. " +
+            "Please use a method that includes userId or User parameter."
+        );
     }
     
     @Override
     public Long getUnreadCount(User user, IncomingEmail.EmailCategory category) {
-        return incomingEmailRepository.countUnreadByUserAndCategory(user, category);
+        try {
+            // Firestore doesn't have countUnreadByUserAndCategory, so we need to filter manually
+            List<IncomingEmail> unreadEmails = incomingEmailRepository.findUnreadByUser(user.getId());
+            return unreadEmails.stream()
+                .filter(email -> category.name().equals(email.getCategory()))
+                .count();
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to get unread count for user {}: {}", user.getEmail(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to get unread count", e);
+        }
     }
     
     @Override
-    @Transactional
     public void processIncomingEmails() {
-        List<User> users = userRepository.findAll();
-        for (User user : users) {
-            if (user.getProvider() == User.Provider.GOOGLE && user.getAccessToken() != null) {
-                scanIncomingEmails(user);
+        try {
+            List<User> users = userRepository.findAll();
+            for (User user : users) {
+                if (user.getProviderEnum() == User.Provider.GOOGLE && user.getAccessToken() != null) {
+                    scanIncomingEmails(user);
+                }
             }
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to process incoming emails: {}", e.getMessage(), e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to process incoming emails", e);
         }
     }
 
     @Override
-    @Transactional
     public void refreshUserEmails(User user) {
-        if (user.getProvider() == User.Provider.GOOGLE && user.getAccessToken() != null) {
+        if (user.getProviderEnum() == User.Provider.GOOGLE && user.getAccessToken() != null) {
             log.info("Refreshing emails for user: {}", user.getEmail());
             scanIncomingEmails(user);
         } else {
@@ -183,10 +217,10 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
     private void processGmailMessage(User user, Message message) {
         try {
             IncomingEmail incomingEmail = new IncomingEmail();
-            incomingEmail.setUser(user);
+            incomingEmail.setUserId(user.getId());
             incomingEmail.setMessageId(message.getId());
             incomingEmail.setThreadId(message.getThreadId());
-            
+
             MessagePart payload = message.getPayload();
             if (payload != null && payload.getHeaders() != null) {
                 for (MessagePartHeader header : payload.getHeaders()) {
@@ -205,30 +239,33 @@ public class IncomingEmailServiceImpl implements IncomingEmailService {
                     }
                 }
             }
-            
+
             String body = extractMessageBody(payload);
             incomingEmail.setBody(body);
-            
+
             IncomingEmail.EmailCategory category = categorizeEmail(
-                incomingEmail.getSubject(), 
-                body, 
+                incomingEmail.getSubject(),
+                body,
                 incomingEmail.getSenderEmail()
             );
-            incomingEmail.setCategory(category);
-            
+            incomingEmail.setCategoryEnum(category);
+
             if (category == IncomingEmail.EmailCategory.SHORTLIST_INTERVIEW) {
-                incomingEmail.setPriority(IncomingEmail.EmailPriority.HIGH);
+                incomingEmail.setPriorityEnum(IncomingEmail.EmailPriority.HIGH);
             } else if (category == IncomingEmail.EmailCategory.RECRUITER_OUTREACH) {
-                incomingEmail.setPriority(IncomingEmail.EmailPriority.NORMAL);
+                incomingEmail.setPriorityEnum(IncomingEmail.EmailPriority.NORMAL);
             } else {
-                incomingEmail.setPriority(IncomingEmail.EmailPriority.LOW);
+                incomingEmail.setPriorityEnum(IncomingEmail.EmailPriority.LOW);
             }
-            
-            incomingEmail.setReceivedAt(LocalDateTime.now());
-            incomingEmail.setProcessed(true);
-            
-            incomingEmailRepository.save(incomingEmail);
-            
+
+            incomingEmail.setReceivedAt(com.google.cloud.Timestamp.now());
+            incomingEmail.setIsProcessed(true);
+
+            incomingEmailRepository.save(user.getId(), incomingEmail);
+
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Failed to process Gmail message {}: {}", message.getId(), e.getMessage(), e);
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("Failed to process Gmail message {}: {}", message.getId(), e.getMessage(), e);
         }

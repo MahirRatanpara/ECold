@@ -4,7 +4,7 @@ import com.ecold.config.JwtUtil;
 import com.ecold.dto.LoginResponse;
 import com.ecold.dto.UserDto;
 import com.ecold.entity.User;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import com.ecold.service.GoogleOAuthService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +31,7 @@ import java.util.Optional;
 public class GoogleOAuthServiceImpl implements GoogleOAuthService {
 
     private final ClientRegistrationRepository clientRegistrationRepository;
-    private final UserRepository userRepository;
+    private final UserFirestoreRepository userRepository;
     private final JwtUtil jwtUtil;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -115,16 +116,26 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
                 String newAccessToken = jsonResponse.get("access_token").asText();
 
                 // Update user's access token in database
-                Optional<User> userOpt = userRepository.findByRefreshToken(refreshToken);
-                if (userOpt.isPresent()) {
-                    User user = userOpt.get();
-                    user.setAccessToken(newAccessToken);
-                    if (jsonResponse.has("expires_in")) {
-                        int expiresIn = jsonResponse.get("expires_in").asInt();
-                        user.setTokenExpiresAt(LocalDateTime.now().plusSeconds(expiresIn));
+                try {
+                    Optional<User> userOpt = userRepository.findByRefreshToken(refreshToken);
+                    if (userOpt.isPresent()) {
+                        User user = userOpt.get();
+                        user.setAccessToken(newAccessToken);
+                        if (jsonResponse.has("expires_in")) {
+                            int expiresIn = jsonResponse.get("expires_in").asInt();
+                            com.google.cloud.Timestamp expiresAt = com.google.cloud.Timestamp.ofTimeSecondsAndNanos(
+                                com.google.cloud.Timestamp.now().getSeconds() + expiresIn, 0);
+                            user.setTokenExpiresAt(expiresAt);
+                        }
+                        userRepository.save(user);
+                        return true;
                     }
-                    userRepository.save(user);
-                    return true;
+                } catch (ExecutionException | InterruptedException e) {
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    log.error("Error updating user with refreshed token", e);
+                    throw new RuntimeException("Failed to update user with refreshed token", e);
                 }
             }
 
@@ -264,30 +275,40 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
     }
 
     private User findOrCreateUser(GoogleUserInfo userInfo, TokenResponse tokenResponse) {
-        Optional<User> existingUser = userRepository.findByEmail(userInfo.getEmail());
+        try {
+            Optional<User> existingUser = userRepository.findByEmail(userInfo.getEmail());
 
-        User user;
-        if (existingUser.isPresent()) {
-            user = existingUser.get();
-            // Update OAuth fields
-            user.setProvider(User.Provider.GOOGLE);
-            user.setProviderId(userInfo.getGoogleId());
-        } else {
-            // Create new user
-            user = new User();
-            user.setEmail(userInfo.getEmail());
-            user.setName(userInfo.getName());
-            user.setProvider(User.Provider.GOOGLE);
-            user.setProviderId(userInfo.getGoogleId());
+            User user;
+            if (existingUser.isPresent()) {
+                user = existingUser.get();
+                // Update OAuth fields
+                user.setProviderEnum(User.Provider.GOOGLE);
+                user.setProviderId(userInfo.getGoogleId());
+            } else {
+                // Create new user
+                user = new User();
+                user.setEmail(userInfo.getEmail());
+                user.setName(userInfo.getName());
+                user.setProviderEnum(User.Provider.GOOGLE);
+                user.setProviderId(userInfo.getGoogleId());
+            }
+
+            // Update OAuth tokens
+            user.setAccessToken(tokenResponse.getAccessToken());
+            user.setRefreshToken(tokenResponse.getRefreshToken());
+            com.google.cloud.Timestamp expiresAt = com.google.cloud.Timestamp.ofTimeSecondsAndNanos(
+                com.google.cloud.Timestamp.now().getSeconds() + tokenResponse.getExpiresIn(), 0);
+            user.setTokenExpiresAt(expiresAt);
+            user.setProfilePicture(userInfo.getPicture());
+
+            return userRepository.save(user);
+        } catch (ExecutionException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("Error finding or creating user", e);
+            throw new RuntimeException("Failed to find or create user", e);
         }
-
-        // Update OAuth tokens
-        user.setAccessToken(tokenResponse.getAccessToken());
-        user.setRefreshToken(tokenResponse.getRefreshToken());
-        user.setTokenExpiresAt(LocalDateTime.now().plusSeconds(tokenResponse.getExpiresIn()));
-        user.setProfilePicture(userInfo.getPicture());
-
-        return userRepository.save(user);
     }
 
     private LoginResponse createLoginResponse(User user) {
@@ -295,8 +316,8 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
         userDto.setId(user.getId());
         userDto.setEmail(user.getEmail());
         userDto.setName(user.getName());
-        userDto.setProvider(user.getProvider());
-        userDto.setCreatedAt(user.getCreatedAt());
+        userDto.setProvider(user.getProviderEnum());
+        userDto.setCreatedAt(convertToLocalDateTime(user.getCreatedAt()));
 
         String jwtToken = jwtUtil.generateToken(user.getEmail());
 
@@ -307,6 +328,19 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
         response.setExpiresIn(86400000L); // 24 hours
 
         return response;
+    }
+
+    /**
+     * Helper method to convert Firestore Timestamp to LocalDateTime
+     */
+    private java.time.LocalDateTime convertToLocalDateTime(com.google.cloud.Timestamp timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        return java.time.LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos()),
+                java.time.ZoneId.systemDefault()
+        );
     }
 
     // Inner classes for data transfer

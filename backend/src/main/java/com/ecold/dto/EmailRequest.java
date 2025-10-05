@@ -30,10 +30,10 @@ public class EmailRequest {
     private String body;
     
     private boolean isHtml;
-    
-    private Long templateId;
-    
-    private Long recruiterId;
+
+    private String templateId;
+
+    private String recruiterId;
     
     // Additional data for placeholder replacement
     private Map<String, String> placeholderData;

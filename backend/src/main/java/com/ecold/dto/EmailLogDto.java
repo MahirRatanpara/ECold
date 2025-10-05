@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class EmailLogDto {
-    private Long id;
+    private String id;
     private Long campaignId;
     private String campaignName;
     private Long recruiterContactId;

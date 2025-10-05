@@ -5,110 +5,144 @@ import com.ecold.dto.TemplateWeekSummaryDto;
 import com.ecold.dto.RecruiterContactDto;
 import com.ecold.dto.EmailTemplateDto;
 import com.ecold.entity.*;
-import com.ecold.repository.RecruiterTemplateAssignmentRepository;
-import com.ecold.repository.RecruiterContactRepository;
-import com.ecold.repository.EmailTemplateRepository;
+import com.ecold.repository.firestore.RecruiterTemplateAssignmentFirestoreRepository;
+import com.ecold.repository.firestore.RecruiterContactFirestoreRepository;
+import com.ecold.repository.firestore.EmailTemplateFirestoreRepository;
 import com.ecold.service.RecruiterTemplateAssignmentService;
 import com.ecold.service.UserService;
+import com.google.cloud.Timestamp;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.WeekFields;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplateAssignmentService {
 
-    private final RecruiterTemplateAssignmentRepository assignmentRepository;
-    private final RecruiterContactRepository recruiterRepository;
-    private final EmailTemplateRepository templateRepository;
+    private final RecruiterTemplateAssignmentFirestoreRepository assignmentFirestoreRepository;
+    private final RecruiterContactFirestoreRepository recruiterFirestoreRepository;
+    private final EmailTemplateFirestoreRepository templateFirestoreRepository;
     private final UserService userService;
 
     @Override
-    public Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplate(Long templateId, Pageable pageable) {
-        User currentUser = userService.getCurrentUser();
+    public Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplate(String templateId, Pageable pageable) {
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        // Try to find the template, but don't fail if it doesn't exist
-        Optional<EmailTemplate> templateOpt = templateRepository.findById(templateId);
+            // Get all assignments for this template
+            List<RecruiterTemplateAssignment> allAssignments = assignmentFirestoreRepository
+                .findByUserAndTemplateAndStatus(currentUser.getId(), templateId,
+                    RecruiterTemplateAssignment.AssignmentStatus.ACTIVE.name());
 
-        Page<RecruiterTemplateAssignment> assignments;
+            // Manual pagination
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), allAssignments.size());
+            List<RecruiterTemplateAssignment> pageContent = allAssignments.subList(start, end);
 
-        if (templateOpt.isPresent()) {
-            // Normal case - template exists, but don't filter by user for now to avoid inconsistencies
-            assignments = assignmentRepository.findByTemplateIdAndStatus(
-                    templateId, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE, pageable);
-        } else {
-            // Handle case where template doesn't exist but assignments might reference it
-            // Use a direct query by templateId instead of template object
-            assignments = assignmentRepository.findByTemplateIdAndStatus(
-                    templateId, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE, pageable);
+            List<RecruiterTemplateAssignmentDto> dtos = pageContent.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+
+            return new PageImpl<>(dtos, pageable, allAssignments.size());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching recruiters for template", e);
         }
-
-        return assignments.map(this::convertToDto);
     }
 
     @Override
-    public Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplateAndDateRange(Long templateId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
-        User currentUser = userService.getCurrentUser();
-        EmailTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new RuntimeException("Template not found"));
+    public Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplateAndDateRange(
+            String templateId, LocalDate startDate, LocalDate endDate, Pageable pageable) {
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        // Convert LocalDate to LocalDateTime for database query
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay(); // Include the entire end date
+            // Get all assignments for this template with ACTIVE status
+            List<RecruiterTemplateAssignment> allAssignments = assignmentFirestoreRepository
+                .findByUserAndTemplateAndStatus(currentUser.getId(), templateId,
+                    RecruiterTemplateAssignment.AssignmentStatus.ACTIVE.name());
 
-        // Use the native SQL method that filters by date range directly in the database
-        Page<RecruiterTemplateAssignment> assignments = assignmentRepository
-                .findByUserAndTemplateAndDateRangeAndStatusBasedOnDateWithPaging(
-                        template, startDateTime, endDateTime,
-                        RecruiterTemplateAssignment.AssignmentStatus.ACTIVE, pageable);
+            // Filter by date range in memory
+            List<RecruiterTemplateAssignment> filteredAssignments = allAssignments.stream()
+                .filter(assignment -> {
+                    if (assignment.getCreatedAt() == null) return false;
+                    LocalDate assignmentDate = assignment.getCreatedAt().toDate().toInstant()
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
+                    return !assignmentDate.isBefore(startDate) && !assignmentDate.isAfter(endDate);
+                })
+                .collect(Collectors.toList());
 
-        return assignments.map(this::convertToDto);
+            // Manual pagination
+            int start = (int) pageable.getOffset();
+            int end = Math.min(start + pageable.getPageSize(), filteredAssignments.size());
+            List<RecruiterTemplateAssignment> pageContent = filteredAssignments.subList(start, end);
+
+            List<RecruiterTemplateAssignmentDto> dtos = pageContent.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+
+            return new PageImpl<>(dtos, pageable, filteredAssignments.size());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching recruiters for template and date range", e);
+        }
     }
 
     @Override
-    public List<TemplateWeekSummaryDto> getDateRangeSummariesForTemplate(Long templateId) {
-        User currentUser = userService.getCurrentUser();
-        EmailTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new RuntimeException("Template not found"));
+    public List<TemplateWeekSummaryDto> getDateRangeSummariesForTemplate(String templateId) {
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        // Use the native SQL method that groups by week start dates
-        List<Object[]> weeklyGroups = assignmentRepository.findWeeklyGroupsByUserAndTemplateAndStatusBasedOnDate(
-                template, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+            // Get all ACTIVE assignments for this template
+            List<RecruiterTemplateAssignment> assignments = assignmentFirestoreRepository
+                .findByUserAndTemplateAndStatus(currentUser.getId(), templateId,
+                    RecruiterTemplateAssignment.AssignmentStatus.ACTIVE.name());
 
+            // Group by week start date
+            Map<LocalDate, Long> weeklyGroups = new HashMap<>();
+            WeekFields weekFields = WeekFields.of(Locale.getDefault());
 
-        return weeklyGroups.stream()
-                .map(row -> {
-                    java.sql.Timestamp weekStartTimestamp = (java.sql.Timestamp) row[0];
-                    Long count = ((Number) row[1]).longValue();
+            for (RecruiterTemplateAssignment assignment : assignments) {
+                if (assignment.getCreatedAt() != null) {
+                    LocalDate assignmentDate = assignment.getCreatedAt().toDate().toInstant()
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
 
-                    LocalDate weekStart = weekStartTimestamp.toLocalDateTime().toLocalDate();
-                    LocalDate weekEnd = weekStart.plusDays(6); // End of week (Sunday to Saturday)
+                    // Get the start of the week for this date
+                    LocalDate weekStart = assignmentDate.with(weekFields.dayOfWeek(), 1);
+
+                    weeklyGroups.merge(weekStart, 1L, Long::sum);
+                }
+            }
+
+            // Convert to DTOs
+            return weeklyGroups.entrySet().stream()
+                .map(entry -> {
+                    LocalDate weekStart = entry.getKey();
+                    Long count = entry.getValue();
+                    LocalDate weekEnd = weekStart.plusDays(6);
 
                     TemplateWeekSummaryDto summary = new TemplateWeekSummaryDto();
                     summary.setStartDate(weekStart);
                     summary.setEndDate(weekEnd);
                     summary.setRecruitersCount(count);
-
-                    // Create a nice label like "Sep 16-22, 2024"
-                    String label = formatDateRange(weekStart, weekEnd);
-                    summary.setDateRangeLabel(label);
+                    summary.setDateRangeLabel(formatDateRange(weekStart, weekEnd));
 
                     return summary;
                 })
+                .sorted(Comparator.comparing(TemplateWeekSummaryDto::getStartDate))
                 .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching date range summaries", e);
+        }
     }
 
     private String formatDateRange(LocalDate start, LocalDate end) {
@@ -125,216 +159,319 @@ public class RecruiterTemplateAssignmentServiceImpl implements RecruiterTemplate
     }
 
     @Override
-    public List<RecruiterTemplateAssignmentDto> getRecruitersForDateRange(Long templateId, LocalDate startDate, LocalDate endDate) {
-        User currentUser = userService.getCurrentUser();
-        EmailTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new RuntimeException("Template not found"));
+    public List<RecruiterTemplateAssignmentDto> getRecruitersForDateRange(
+            String templateId, LocalDate startDate, LocalDate endDate) {
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        // Convert LocalDate to LocalDateTime for database query
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay(); // Include the entire end date
+            // Get all assignments for this template with ACTIVE status
+            List<RecruiterTemplateAssignment> allAssignments = assignmentFirestoreRepository
+                .findByUserAndTemplateAndStatus(currentUser.getId(), templateId,
+                    RecruiterTemplateAssignment.AssignmentStatus.ACTIVE.name());
 
-        // Use the native SQL method that filters by date range directly in the database
-        List<RecruiterTemplateAssignment> assignments = assignmentRepository
-                .findByUserAndTemplateAndDateRangeAndStatusBasedOnDate(
-                        template, startDateTime, endDateTime,
-                        RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+            // Filter by date range
+            List<RecruiterTemplateAssignment> filteredAssignments = allAssignments.stream()
+                .filter(assignment -> {
+                    if (assignment.getCreatedAt() == null) return false;
+                    LocalDate assignmentDate = assignment.getCreatedAt().toDate().toInstant()
+                        .atZone(ZoneId.systemDefault()).toLocalDate();
+                    return !assignmentDate.isBefore(startDate) && !assignmentDate.isAfter(endDate);
+                })
+                .collect(Collectors.toList());
 
-        return assignments.stream()
+            return filteredAssignments.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching recruiters for date range", e);
+        }
     }
 
     @Override
-    public RecruiterTemplateAssignmentDto assignRecruiterToTemplate(Long recruiterId, Long templateId) {
-        User currentUser = userService.getCurrentUser();
+    public RecruiterTemplateAssignmentDto assignRecruiterToTemplate(String recruiterId, String templateId) {
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        RecruiterContact recruiter = recruiterRepository.findById(recruiterId)
+            // Verify recruiter and template exist
+            RecruiterContact recruiter = recruiterFirestoreRepository.findById(currentUser.getId(), recruiterId)
                 .orElseThrow(() -> new RuntimeException("Recruiter not found"));
-        EmailTemplate template = templateRepository.findById(templateId)
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), templateId)
                 .orElseThrow(() -> new RuntimeException("Template not found"));
 
-        // Calculate current week and year
-        LocalDateTime now = LocalDateTime.now();
-        WeekFields weekFields = WeekFields.of(Locale.getDefault());
-        int currentWeek = now.get(weekFields.weekOfWeekBasedYear());
-        int currentYear = now.get(weekFields.weekBasedYear());
+            // Calculate current week and year
+            LocalDate now = LocalDate.now();
+            WeekFields weekFields = WeekFields.of(Locale.getDefault());
+            int currentWeek = now.get(weekFields.weekOfWeekBasedYear());
+            int currentYear = now.get(weekFields.weekBasedYear());
 
-        RecruiterTemplateAssignment assignment = new RecruiterTemplateAssignment();
-        assignment.setRecruiterContact(recruiter);
-        assignment.setEmailTemplate(template);
-        assignment.setUser(currentUser);
-        assignment.setWeekAssigned(currentWeek);
-        assignment.setYearAssigned(currentYear);
-        assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
-        assignment.setEmailsSent(0); // Explicitly set to 0 for new assignments
-
-        assignment = assignmentRepository.save(assignment);
-        return convertToDto(assignment);
-    }
-
-    @Override
-    public List<RecruiterTemplateAssignmentDto> bulkAssignRecruitersToTemplate(List<Long> recruiterIds, Long templateId) {
-        User currentUser = userService.getCurrentUser();
-        EmailTemplate template = templateRepository.findById(templateId)
-                .orElseThrow(() -> new RuntimeException("Template not found"));
-
-        // Calculate current week and year
-        LocalDateTime now = LocalDateTime.now();
-        WeekFields weekFields = WeekFields.of(Locale.getDefault());
-        int currentWeek = now.get(weekFields.weekOfWeekBasedYear());
-        int currentYear = now.get(weekFields.weekBasedYear());
-
-        List<RecruiterContact> recruiters = recruiterRepository.findAllById(recruiterIds);
-
-        List<RecruiterTemplateAssignment> assignments = recruiters.stream().map(recruiter -> {
             RecruiterTemplateAssignment assignment = new RecruiterTemplateAssignment();
-            assignment.setRecruiterContact(recruiter);
-            assignment.setEmailTemplate(template);
-            assignment.setUser(currentUser);
+            assignment.setRecruiterId(recruiterId);
+            assignment.setTemplateId(templateId);
+            assignment.setUserId(currentUser.getId());
             assignment.setWeekAssigned(currentWeek);
             assignment.setYearAssigned(currentYear);
-            assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
-            assignment.setEmailsSent(0); // Explicitly set to 0 for new assignments
-            return assignment;
-        }).collect(Collectors.toList());
+            assignment.setAssignmentStatusEnum(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+            assignment.setEmailsSent(0);
 
-        assignments = assignmentRepository.saveAll(assignments);
-        return assignments.stream().map(this::convertToDto).collect(Collectors.toList());
+            assignment = assignmentFirestoreRepository.save(currentUser.getId(), assignment);
+            return convertToDto(assignment);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error assigning recruiter to template", e);
+        }
     }
 
     @Override
-    public void moveRecruiterToFollowupTemplate(Long assignmentId) {
-        RecruiterTemplateAssignment assignment = assignmentRepository.findById(assignmentId)
+    public List<RecruiterTemplateAssignmentDto> bulkAssignRecruitersToTemplate(
+            List<String> recruiterIds, String templateId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+
+            // Verify template exists
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), templateId)
+                .orElseThrow(() -> new RuntimeException("Template not found"));
+
+            // Calculate current week and year
+            LocalDate now = LocalDate.now();
+            WeekFields weekFields = WeekFields.of(Locale.getDefault());
+            int currentWeek = now.get(weekFields.weekOfWeekBasedYear());
+            int currentYear = now.get(weekFields.weekBasedYear());
+
+            List<RecruiterTemplateAssignment> assignments = new ArrayList<>();
+
+            for (String recruiterId : recruiterIds) {
+                // Verify each recruiter exists
+                Optional<RecruiterContact> recruiterOpt = recruiterFirestoreRepository
+                    .findById(currentUser.getId(), recruiterId);
+
+                if (recruiterOpt.isPresent()) {
+                    RecruiterTemplateAssignment assignment = new RecruiterTemplateAssignment();
+                    assignment.setRecruiterId(recruiterId);
+                    assignment.setTemplateId(templateId);
+                    assignment.setUserId(currentUser.getId());
+                    assignment.setWeekAssigned(currentWeek);
+                    assignment.setYearAssigned(currentYear);
+                    assignment.setAssignmentStatusEnum(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+                    assignment.setEmailsSent(0);
+
+                    assignment = assignmentFirestoreRepository.save(currentUser.getId(), assignment);
+                    assignments.add(assignment);
+                }
+            }
+
+            return assignments.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error bulk assigning recruiters to template", e);
+        }
+    }
+
+    @Override
+    public void moveRecruiterToFollowupTemplate(String assignmentId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+
+            RecruiterTemplateAssignment assignment = assignmentFirestoreRepository
+                .findById(currentUser.getId(), assignmentId)
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
-        EmailTemplate currentTemplate = assignment.getEmailTemplate();
-        EmailTemplate followUpTemplate = null;
+            // Get current template
+            EmailTemplate currentTemplate = templateFirestoreRepository
+                .findById(currentUser.getId(), assignment.getTemplateId())
+                .orElse(null);
 
-        // First check if current template has a specific follow-up template
-        if (currentTemplate.getFollowUpTemplate() != null) {
-            followUpTemplate = currentTemplate.getFollowUpTemplate();
-        } else {
-            // If no specific follow-up template, find the active FOLLOW_UP category template for this user
-            List<EmailTemplate> followUpTemplates = templateRepository.findByUserAndCategoryAndStatus(
-                assignment.getUser(),
-                EmailTemplate.Category.FOLLOW_UP,
-                EmailTemplate.Status.ACTIVE
-            );
+            EmailTemplate followUpTemplate = null;
 
-            if (!followUpTemplates.isEmpty()) {
-                // Use the first active follow-up template
-                followUpTemplate = followUpTemplates.get(0);
+            // First check if current template has a specific follow-up template
+            if (currentTemplate != null && currentTemplate.getFollowUpTemplateId() != null) {
+                followUpTemplate = templateFirestoreRepository
+                    .findById(currentUser.getId(), currentTemplate.getFollowUpTemplateId())
+                    .orElse(null);
+            } else {
+                // If no specific follow-up template, find the active FOLLOW_UP category template for this user
+                List<EmailTemplate> followUpTemplates = templateFirestoreRepository
+                    .findByUserAndCategoryAndStatus(currentUser.getId(),
+                        EmailTemplate.Category.FOLLOW_UP.name(),
+                        EmailTemplate.Status.ACTIVE.name());
+
+                if (!followUpTemplates.isEmpty()) {
+                    followUpTemplate = followUpTemplates.get(0);
+                }
             }
-        }
 
-        if (followUpTemplate != null) {
-            // Create new assignment with follow-up template
-            RecruiterTemplateAssignment followUpAssignment = new RecruiterTemplateAssignment();
-            followUpAssignment.setRecruiterContact(assignment.getRecruiterContact());
-            followUpAssignment.setEmailTemplate(followUpTemplate);
-            followUpAssignment.setUser(assignment.getUser());
-            followUpAssignment.setWeekAssigned(assignment.getWeekAssigned());
-            followUpAssignment.setYearAssigned(assignment.getYearAssigned());
-            followUpAssignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+            if (followUpTemplate != null) {
+                // Create new assignment with follow-up template
+                RecruiterTemplateAssignment followUpAssignment = new RecruiterTemplateAssignment();
+                followUpAssignment.setRecruiterId(assignment.getRecruiterId());
+                followUpAssignment.setTemplateId(followUpTemplate.getId());
+                followUpAssignment.setUserId(currentUser.getId());
+                followUpAssignment.setWeekAssigned(assignment.getWeekAssigned());
+                followUpAssignment.setYearAssigned(assignment.getYearAssigned());
+                followUpAssignment.setAssignmentStatusEnum(RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+                followUpAssignment.setEmailsSent(assignment.getEmailsSent());
+                followUpAssignment.setLastEmailSentAt(assignment.getLastEmailSentAt());
 
-            // Preserve email count and last email sent date from original assignment
-            followUpAssignment.setEmailsSent(assignment.getEmailsSent());
-            followUpAssignment.setLastEmailSentAt(assignment.getLastEmailSentAt());
-
-            assignmentRepository.save(followUpAssignment);
+                assignmentFirestoreRepository.save(currentUser.getId(), followUpAssignment);
+            }
 
             // Mark current assignment as moved to follow-up
-            assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
-            assignmentRepository.save(assignment);
-        } else {
-            // No follow-up template available, just mark assignment as completed/inactive
-            assignment.setAssignmentStatus(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
-            assignmentRepository.save(assignment);
+            assignment.setAssignmentStatusEnum(RecruiterTemplateAssignment.AssignmentStatus.MOVED_TO_FOLLOWUP);
+            assignmentFirestoreRepository.save(currentUser.getId(), assignment);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error moving recruiter to follow-up template", e);
         }
     }
 
-
     @Override
-    public void markEmailSent(Long assignmentId) {
-        RecruiterTemplateAssignment assignment = assignmentRepository.findById(assignmentId)
+    public void markEmailSent(String assignmentId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+
+            RecruiterTemplateAssignment assignment = assignmentFirestoreRepository
+                .findById(currentUser.getId(), assignmentId)
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
-        assignment.setEmailsSent(assignment.getEmailsSent() + 1);
-        assignment.setLastEmailSentAt(LocalDateTime.now());
-        assignmentRepository.save(assignment);
+            assignment.setEmailsSent(assignment.getEmailsSent() + 1);
+            assignment.setLastEmailSentAt(Timestamp.now());
+            assignmentFirestoreRepository.save(currentUser.getId(), assignment);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error marking email sent", e);
+        }
     }
 
     @Override
     public List<RecruiterTemplateAssignmentDto> getActiveAssignments() {
-        User currentUser = userService.getCurrentUser();
-        List<RecruiterTemplateAssignment> assignments = assignmentRepository
-                .findByUserAndAssignmentStatus(currentUser, RecruiterTemplateAssignment.AssignmentStatus.ACTIVE);
+        try {
+            User currentUser = userService.getCurrentUser();
 
-        return assignments.stream().map(this::convertToDto).collect(Collectors.toList());
+            List<RecruiterTemplateAssignment> assignments = assignmentFirestoreRepository
+                .findByUserAndStatus(currentUser.getId(),
+                    RecruiterTemplateAssignment.AssignmentStatus.ACTIVE.name());
+
+            return assignments.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching active assignments", e);
+        }
     }
 
     @Override
-    public void deleteAssignment(Long assignmentId) {
-        assignmentRepository.deleteById(assignmentId);
+    public void deleteAssignment(String assignmentId) {
+        try {
+            User currentUser = userService.getCurrentUser();
+            assignmentFirestoreRepository.delete(currentUser.getId(), assignmentId);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error deleting assignment", e);
+        }
     }
 
     @Override
-    public List<RecruiterTemplateAssignmentDto> bulkDeleteAssignments(List<Long> assignmentIds) {
-        List<RecruiterTemplateAssignment> assignments = assignmentRepository.findAllById(assignmentIds);
-        assignmentRepository.deleteAll(assignments);
-        return assignments.stream().map(this::convertToDto).collect(Collectors.toList());
+    public List<RecruiterTemplateAssignmentDto> bulkDeleteAssignments(List<String> assignmentIds) {
+        try {
+            User currentUser = userService.getCurrentUser();
+            List<RecruiterTemplateAssignment> assignments = new ArrayList<>();
+
+            for (String assignmentId : assignmentIds) {
+                Optional<RecruiterTemplateAssignment> assignmentOpt = assignmentFirestoreRepository
+                    .findById(currentUser.getId(), assignmentId);
+
+                if (assignmentOpt.isPresent()) {
+                    assignments.add(assignmentOpt.get());
+                    assignmentFirestoreRepository.delete(currentUser.getId(), assignmentId);
+                }
+            }
+
+            return assignments.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error bulk deleting assignments", e);
+        }
     }
 
     private RecruiterTemplateAssignmentDto convertToDto(RecruiterTemplateAssignment assignment) {
-        RecruiterTemplateAssignmentDto dto = new RecruiterTemplateAssignmentDto();
-        dto.setId(assignment.getId());
-        dto.setRecruiterId(assignment.getRecruiterContact().getId());
-        dto.setTemplateId(assignment.getEmailTemplate().getId());
-        dto.setTemplateName(assignment.getEmailTemplate().getName());
-        dto.setWeekAssigned(assignment.getWeekAssigned());
-        dto.setYearAssigned(assignment.getYearAssigned());
-        dto.setAssignmentStatus(assignment.getAssignmentStatus());
-        dto.setEmailsSent(assignment.getEmailsSent());
-        dto.setLastEmailSentAt(assignment.getLastEmailSentAt());
-        dto.setCreatedAt(assignment.getCreatedAt());
-        dto.setUpdatedAt(assignment.getUpdatedAt());
+        try {
+            RecruiterTemplateAssignmentDto dto = new RecruiterTemplateAssignmentDto();
+            dto.setId(assignment.getId());
+            dto.setRecruiterId(assignment.getRecruiterId());
+            dto.setTemplateId(assignment.getTemplateId());
+            dto.setWeekAssigned(assignment.getWeekAssigned());
+            dto.setYearAssigned(assignment.getYearAssigned());
+            dto.setAssignmentStatus(assignment.getAssignmentStatusEnum());
+            dto.setEmailsSent(assignment.getEmailsSent());
+            dto.setLastEmailSentAt(assignment.getLastEmailSentAt());
+            dto.setCreatedAt(assignment.getCreatedAt());
+            dto.setUpdatedAt(assignment.getUpdatedAt());
 
-        // Convert recruiter contact information
-        if (assignment.getRecruiterContact() != null) {
-            RecruiterContactDto recruiterDto = new RecruiterContactDto();
-            recruiterDto.setId(assignment.getRecruiterContact().getId());
-            recruiterDto.setEmail(assignment.getRecruiterContact().getEmail());
-            recruiterDto.setRecruiterName(assignment.getRecruiterContact().getRecruiterName());
-            recruiterDto.setCompanyName(assignment.getRecruiterContact().getCompanyName());
-            recruiterDto.setJobRole(assignment.getRecruiterContact().getJobRole());
-            recruiterDto.setLinkedinProfile(assignment.getRecruiterContact().getLinkedinProfile());
-            recruiterDto.setStatus(assignment.getRecruiterContact().getStatus());
-            recruiterDto.setLastContactedAt(assignment.getRecruiterContact().getLastContactedAt());
-            recruiterDto.setCreatedAt(assignment.getRecruiterContact().getCreatedAt());
-            recruiterDto.setUpdatedAt(assignment.getRecruiterContact().getUpdatedAt());
-            dto.setRecruiterContact(recruiterDto);
+            // Fetch and set recruiter contact information
+            if (assignment.getRecruiterId() != null && assignment.getUserId() != null) {
+                recruiterFirestoreRepository.findById(assignment.getUserId(), assignment.getRecruiterId())
+                    .ifPresent(recruiter -> {
+                        RecruiterContactDto recruiterDto = new RecruiterContactDto();
+                        recruiterDto.setId(recruiter.getId());
+                        recruiterDto.setEmail(recruiter.getEmail());
+                        recruiterDto.setRecruiterName(recruiter.getRecruiterName());
+                        recruiterDto.setCompanyName(recruiter.getCompanyName());
+                        recruiterDto.setJobRole(recruiter.getJobRole());
+                        recruiterDto.setLinkedinProfile(recruiter.getLinkedinProfile());
+                        recruiterDto.setStatus(recruiter.getStatusEnum());
+                        recruiterDto.setLastContactedAt(recruiter.getLastContactedAt());
+                        recruiterDto.setCreatedAt(recruiter.getCreatedAt());
+                        recruiterDto.setUpdatedAt(recruiter.getUpdatedAt());
+                        dto.setRecruiterContact(recruiterDto);
+                    });
+            }
+
+            // Fetch and set email template information
+            if (assignment.getTemplateId() != null && assignment.getUserId() != null) {
+                templateFirestoreRepository.findById(assignment.getUserId(), assignment.getTemplateId())
+                    .ifPresent(template -> {
+                        dto.setTemplateName(template.getName());
+
+                        EmailTemplateDto templateDto = new EmailTemplateDto();
+                        templateDto.setId(template.getId());
+                        templateDto.setName(template.getName());
+                        templateDto.setSubject(template.getSubject());
+                        templateDto.setBody(template.getBody());
+                        templateDto.setCategory(template.getCategoryEnum());
+                        templateDto.setStatus(template.getStatusEnum());
+                        templateDto.setUsageCount(template.getUsageCount());
+                        templateDto.setEmailsSent(template.getEmailsSent());
+                        templateDto.setResponseRate(template.getResponseRate());
+                        templateDto.setIsDefault(template.getIsDefault());
+                        templateDto.setLastUsed(convertToLocalDateTime(template.getLastUsed()));
+                        templateDto.setCreatedAt(convertToLocalDateTime(template.getCreatedAt()));
+                        templateDto.setUpdatedAt(convertToLocalDateTime(template.getUpdatedAt()));
+                        dto.setEmailTemplate(templateDto);
+                    });
+            }
+
+            return dto;
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error converting assignment to DTO", e);
         }
+    }
 
-        // Convert email template information
-        if (assignment.getEmailTemplate() != null) {
-            EmailTemplateDto templateDto = new EmailTemplateDto();
-            templateDto.setId(assignment.getEmailTemplate().getId());
-            templateDto.setName(assignment.getEmailTemplate().getName());
-            templateDto.setSubject(assignment.getEmailTemplate().getSubject());
-            templateDto.setBody(assignment.getEmailTemplate().getBody());
-            templateDto.setCategory(assignment.getEmailTemplate().getCategory());
-            templateDto.setStatus(assignment.getEmailTemplate().getStatus());
-            templateDto.setUsageCount(assignment.getEmailTemplate().getUsageCount());
-            templateDto.setEmailsSent(assignment.getEmailTemplate().getEmailsSent());
-            templateDto.setResponseRate(assignment.getEmailTemplate().getResponseRate());
-            templateDto.setIsDefault(assignment.getEmailTemplate().getIsDefault());
-            templateDto.setLastUsed(assignment.getEmailTemplate().getLastUsed());
-            templateDto.setCreatedAt(assignment.getEmailTemplate().getCreatedAt());
-            templateDto.setUpdatedAt(assignment.getEmailTemplate().getUpdatedAt());
-            dto.setEmailTemplate(templateDto);
+    /**
+     * Helper method to convert Firestore Timestamp to LocalDateTime
+     */
+    private java.time.LocalDateTime convertToLocalDateTime(com.google.cloud.Timestamp timestamp) {
+        if (timestamp == null) {
+            return null;
         }
-
-        return dto;
+        return java.time.LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos()),
+                java.time.ZoneId.systemDefault()
+        );
     }
 }

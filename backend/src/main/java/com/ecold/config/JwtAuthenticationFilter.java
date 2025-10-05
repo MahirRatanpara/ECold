@@ -1,12 +1,13 @@
 package com.ecold.config;
 
 import com.ecold.entity.User;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -16,73 +17,56 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    
+
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
-    
+    private final UserFirestoreRepository userFirestoreRepository;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                   FilterChain filterChain) throws ServletException, IOException {
 
         String requestURI = request.getRequestURI();
-        System.out.println("Request URI: " + requestURI);
 
-        // Skip JWT authentication for OAuth endpoints
+        // Skip JWT authentication for OAuth and public endpoints
         if (shouldSkipFilter(requestURI)) {
-            System.out.println("✅ Skipping JWT filter for endpoint: " + requestURI);
             filterChain.doFilter(request, response);
             return;
         }
 
-        System.out.println("🔍 Processing JWT filter for endpoint: " + requestURI);
-
         try {
             String jwt = getJwtFromRequest(request);
-            System.out.println("JWT from request: " + (jwt != null ? "Present (length: " + jwt.length() + ")" : "Not present"));
-            
-            if (StringUtils.hasText(jwt)) {
-                boolean isValid = jwtUtil.validateToken(jwt);
-                System.out.println("JWT token valid: " + isValid);
-                
-                if (isValid) {
-                    String email = jwtUtil.getEmailFromToken(jwt);
-                    System.out.println("Email from JWT: " + email);
-                    
-                    Optional<User> userOptional = userRepository.findByEmail(email);
+
+            if (StringUtils.hasText(jwt) && jwtUtil.validateToken(jwt)) {
+                String email = jwtUtil.getEmailFromToken(jwt);
+
+                try {
+                    Optional<User> userOptional = userFirestoreRepository.findByEmail(email);
                     if (userOptional.isPresent()) {
-                        User user = userOptional.get();
-                        System.out.println("User found: " + user.getEmail());
-                        
                         UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(email, null,
                                 java.util.Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        System.out.println("Authentication set successfully");
                     } else {
-                        System.err.println("User not found for email: " + email);
+                        log.warn("User not found for email: {}", email);
                     }
-                } else {
-                    System.err.println("Invalid JWT token");
+                } catch (ExecutionException | InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.error("Error fetching user from Firestore: {}", e.getMessage());
                 }
-            } else {
-                System.out.println("No JWT token found in request");
             }
         } catch (Exception ex) {
-            System.err.println("Could not set user authentication in security context: " + ex.getMessage());
-            ex.printStackTrace();
+            log.error("Could not set user authentication: {}", ex.getMessage());
         }
 
-        System.out.println("=== BEFORE doFilter - About to continue filter chain ===");
         filterChain.doFilter(request, response);
-        System.out.println("=== AFTER doFilter - Returned from filter chain ===");
     }
     
     private String getJwtFromRequest(HttpServletRequest request) {

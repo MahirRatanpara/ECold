@@ -26,7 +26,7 @@ public class RecruiterTemplateAssignmentController {
 
     @GetMapping("/template/{templateId}")
     public ResponseEntity<Page<RecruiterTemplateAssignmentDto>> getRecruitersForTemplate(
-            @PathVariable Long templateId,
+            @PathVariable String templateId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
@@ -37,7 +37,7 @@ public class RecruiterTemplateAssignmentController {
 
     @GetMapping("/template/{templateId}/date-range")
     public ResponseEntity<Page<RecruiterTemplateAssignmentDto>> getRecruitersForTemplateAndDateRange(
-            @PathVariable Long templateId,
+            @PathVariable String templateId,
             @RequestParam String startDate,
             @RequestParam String endDate,
             @RequestParam(defaultValue = "0") int page,
@@ -54,7 +54,7 @@ public class RecruiterTemplateAssignmentController {
 
     @GetMapping("/template/{templateId}/date-ranges")
     public ResponseEntity<List<TemplateWeekSummaryDto>> getDateRangeSummariesForTemplate(
-            @PathVariable Long templateId) {
+            @PathVariable String templateId) {
 
         List<TemplateWeekSummaryDto> summaries = assignmentService.getDateRangeSummariesForTemplate(templateId);
         return ResponseEntity.ok(summaries);
@@ -62,7 +62,7 @@ public class RecruiterTemplateAssignmentController {
 
     @GetMapping("/template/{templateId}/date-range/all")
     public ResponseEntity<List<RecruiterTemplateAssignmentDto>> getAllRecruitersForDateRange(
-            @PathVariable Long templateId,
+            @PathVariable String templateId,
             @RequestParam String startDate,
             @RequestParam String endDate) {
 
@@ -93,7 +93,7 @@ public class RecruiterTemplateAssignmentController {
 
     @PostMapping("/template/{templateId}/date-range/send-bulk-email")
     public ResponseEntity<Void> sendBulkEmailToDateRange(
-            @PathVariable Long templateId,
+            @PathVariable String templateId,
             @RequestParam String startDate,
             @RequestParam String endDate,
             @RequestBody BulkEmailRequest request) {
@@ -161,26 +161,26 @@ public class RecruiterTemplateAssignmentController {
     }
 
     @PutMapping("/{assignmentId}/mark-email-sent")
-    public ResponseEntity<Void> markEmailSent(@PathVariable Long assignmentId) {
+    public ResponseEntity<Void> markEmailSent(@PathVariable String assignmentId) {
         assignmentService.markEmailSent(assignmentId);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{assignmentId}/move-to-followup")
-    public ResponseEntity<Void> moveToFollowup(@PathVariable Long assignmentId) {
+    public ResponseEntity<Void> moveToFollowup(@PathVariable String assignmentId) {
         assignmentService.moveRecruiterToFollowupTemplate(assignmentId);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{assignmentId}")
-    public ResponseEntity<Void> deleteAssignment(@PathVariable Long assignmentId) {
+    public ResponseEntity<Void> deleteAssignment(@PathVariable String assignmentId) {
         assignmentService.deleteAssignment(assignmentId);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/bulk")
     public ResponseEntity<List<RecruiterTemplateAssignmentDto>> bulkDeleteAssignments(
-            @RequestBody List<Long> assignmentIds) {
+            @RequestBody List<String> assignmentIds) {
 
         List<RecruiterTemplateAssignmentDto> deleted = assignmentService.bulkDeleteAssignments(assignmentIds);
         return ResponseEntity.ok(deleted);
@@ -194,23 +194,23 @@ public class RecruiterTemplateAssignmentController {
 
     // Request DTOs
     public static class AssignmentRequest {
-        private Long recruiterId;
-        private Long templateId;
+        private String recruiterId;
+        private String templateId;
 
-        public Long getRecruiterId() { return recruiterId; }
-        public void setRecruiterId(Long recruiterId) { this.recruiterId = recruiterId; }
-        public Long getTemplateId() { return templateId; }
-        public void setTemplateId(Long templateId) { this.templateId = templateId; }
+        public String getRecruiterId() { return recruiterId; }
+        public void setRecruiterId(String recruiterId) { this.recruiterId = recruiterId; }
+        public String getTemplateId() { return templateId; }
+        public void setTemplateId(String templateId) { this.templateId = templateId; }
     }
 
     public static class BulkAssignmentRequest {
-        private List<Long> recruiterIds;
-        private Long templateId;
+        private List<String> recruiterIds;
+        private String templateId;
 
-        public List<Long> getRecruiterIds() { return recruiterIds; }
-        public void setRecruiterIds(List<Long> recruiterIds) { this.recruiterIds = recruiterIds; }
-        public Long getTemplateId() { return templateId; }
-        public void setTemplateId(Long templateId) { this.templateId = templateId; }
+        public List<String> getRecruiterIds() { return recruiterIds; }
+        public void setRecruiterIds(List<String> recruiterIds) { this.recruiterIds = recruiterIds; }
+        public String getTemplateId() { return templateId; }
+        public void setTemplateId(String templateId) { this.templateId = templateId; }
     }
 
     public static class BulkEmailRequest {

@@ -16,12 +16,12 @@ public interface EmailService {
     /**
      * Send email using template with placeholder replacement
      */
-    EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData);
+    EmailResponse sendTemplateEmail(String templateId, String recruiterId, User user, Map<String, String> additionalData);
 
     /**
      * Send email using template with placeholder replacement and scheduling
      */
-    EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime);
+    EmailResponse sendTemplateEmail(String templateId, String recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime);
     
     /**
      * Test email configuration

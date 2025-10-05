@@ -12,15 +12,15 @@ public interface EmailTemplateService {
     List<EmailTemplateDto> getAllTemplates();
     List<EmailTemplateDto> getTemplatesByCategory(EmailTemplate.Category category);
     List<EmailTemplateDto> getTemplatesByStatus(EmailTemplate.Status status);
-    EmailTemplateDto getTemplateById(Long id);
+    EmailTemplateDto getTemplateById(String id);
     EmailTemplateDto createTemplate(EmailTemplateDto templateDto);
-    EmailTemplateDto updateTemplate(Long id, EmailTemplateDto templateDto);
-    void deleteTemplate(Long id);
-    EmailTemplateDto duplicateTemplate(Long id);
-    void archiveTemplate(Long id);
-    void activateTemplate(Long id);
+    EmailTemplateDto updateTemplate(String id, EmailTemplateDto templateDto);
+    void deleteTemplate(String id);
+    EmailTemplateDto duplicateTemplate(String id);
+    void archiveTemplate(String id);
+    void activateTemplate(String id);
     Map<String, Object> getTemplateStats();
-    void incrementUsage(Long id);
+    void incrementUsage(String id);
     List<EmailTemplateDto> searchTemplates(String query, EmailTemplate.Category category, EmailTemplate.Status status);
     void clearAllTemplates();
 }

@@ -39,27 +39,27 @@ public class RecruiterController {
     @PostMapping
     public ResponseEntity<RecruiterContactDto> createRecruiter(
             @Valid @RequestBody RecruiterContactDto recruiterDto,
-            @RequestParam(required = false) Long templateId) {
+            @RequestParam(required = false) String templateId) {
         RecruiterContactDto created = recruiterService.createRecruiter(recruiterDto, templateId);
         return ResponseEntity.ok(created);
     }
     
     @PutMapping("/{id}")
     public ResponseEntity<RecruiterContactDto> updateRecruiter(
-            @PathVariable Long id, 
+            @PathVariable String id, 
             @Valid @RequestBody RecruiterContactDto recruiterDto) {
         RecruiterContactDto updated = recruiterService.updateRecruiter(id, recruiterDto);
         return ResponseEntity.ok(updated);
     }
     
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteRecruiter(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteRecruiter(@PathVariable String id) {
         recruiterService.deleteRecruiter(id);
         return ResponseEntity.ok().build();
     }
     
     @PutMapping("/{id}/mark-contacted")
-    public ResponseEntity<RecruiterContactDto> markAsContacted(@PathVariable Long id) {
+    public ResponseEntity<RecruiterContactDto> markAsContacted(@PathVariable String id) {
         RecruiterContactDto updated = recruiterService.markAsContacted(id);
         return ResponseEntity.ok(updated);
     }
@@ -67,7 +67,7 @@ public class RecruiterController {
     @PostMapping("/import/csv")
     public ResponseEntity<List<RecruiterContactDto>> importFromCsv(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) Long templateId) {
+            @RequestParam(required = false) String templateId) {
         List<RecruiterContactDto> imported = recruiterService.importFromCsv(file, templateId);
         return ResponseEntity.ok(imported);
     }
@@ -97,7 +97,7 @@ public class RecruiterController {
     }
     
     @DeleteMapping("/bulk")
-    public ResponseEntity<Void> bulkDeleteRecruiters(@RequestBody List<Long> ids) {
+    public ResponseEntity<Void> bulkDeleteRecruiters(@RequestBody List<String> ids) {
         recruiterService.bulkDeleteRecruiters(ids);
         return ResponseEntity.ok().build();
     }
@@ -110,11 +110,11 @@ public class RecruiterController {
     }
     
     public static class BulkStatusUpdateRequest {
-        private List<Long> ids;
+        private List<String> ids;
         private String status;
-        
-        public List<Long> getIds() { return ids; }
-        public void setIds(List<Long> ids) { this.ids = ids; }
+
+        public List<String> getIds() { return ids; }
+        public void setIds(List<String> ids) { this.ids = ids; }
         public String getStatus() { return status; }
         public void setStatus(String status) { this.status = status; }
     }

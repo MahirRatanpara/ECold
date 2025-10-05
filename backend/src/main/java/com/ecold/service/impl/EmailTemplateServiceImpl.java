@@ -4,359 +4,365 @@ import com.ecold.dto.EmailTemplateDto;
 import com.ecold.entity.EmailTemplate;
 import com.ecold.entity.User;
 import com.ecold.exception.TemplateValidationException;
-import com.ecold.repository.EmailTemplateRepository;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.EmailTemplateFirestoreRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import com.ecold.service.EmailTemplateService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.Timestamp;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.time.LocalDateTime;
 import java.util.*;
-import org.springframework.web.multipart.MultipartFile;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 
 @Service
 @RequiredArgsConstructor
 public class EmailTemplateServiceImpl implements EmailTemplateService {
 
-    private final EmailTemplateRepository templateRepository;
-    private final UserRepository userRepository;
+    private final EmailTemplateFirestoreRepository templateFirestoreRepository;
+    private final UserFirestoreRepository userFirestoreRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
-    // In-memory storage for when database is unavailable
-    private final Map<Long, EmailTemplate> inMemoryTemplates = new ConcurrentHashMap<>();
-    private Long inMemoryIdCounter = 1L;
-    private boolean isDatabaseAvailable = true;
 
     @Override
     public List<EmailTemplateDto> getAllTemplates() {
-        User currentUser = getCurrentUser();
-        List<EmailTemplate> templates = templateRepository.findByUser(currentUser);
-        return templates.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        try {
+            User currentUser = getCurrentUser();
+            List<EmailTemplate> templates = templateFirestoreRepository.findByUser(currentUser.getId());
+            return templates.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching templates", e);
+        }
     }
 
     @Override
     public List<EmailTemplateDto> getTemplatesByCategory(EmailTemplate.Category category) {
-        User currentUser = getCurrentUser();
-        List<EmailTemplate> templates = templateRepository.findByUserAndCategory(currentUser, category);
-        return templates.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        try {
+            User currentUser = getCurrentUser();
+            List<EmailTemplate> templates = templateFirestoreRepository.findByUserAndCategory(currentUser.getId(), category.name());
+            return templates.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching templates by category", e);
+        }
     }
 
     @Override
     public List<EmailTemplateDto> getTemplatesByStatus(EmailTemplate.Status status) {
-        User currentUser = getCurrentUser();
-        List<EmailTemplate> templates = templateRepository.findByUserAndStatus(currentUser, status);
-        return templates.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
+        try {
+            User currentUser = getCurrentUser();
+            List<EmailTemplate> templates = templateFirestoreRepository.findByUserAndStatus(currentUser.getId(), status.name());
+            return templates.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching templates by status", e);
+        }
     }
 
     @Override
-    public EmailTemplateDto getTemplateById(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate template = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        // Temporarily disable ownership check for testing
-        // if (!template.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
-        
-        return convertToDto(template);
+    public EmailTemplateDto getTemplateById(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
+
+            return convertToDto(template);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching template by id", e);
+        }
     }
 
     @Override
     public EmailTemplateDto createTemplate(EmailTemplateDto templateDto) {
-        if (templateDto == null) {
-            throw new TemplateValidationException("Template data cannot be null");
-        }
-        
-        // Additional placeholder validation at service level
-        validatePlaceholders(templateDto);
-        
-        User currentUser = getCurrentUser();
-        
-        // Check if template with same name already exists for this user
-        if (templateDto.getName() != null && !templateDto.getName().trim().isEmpty()) {
-            Optional<EmailTemplate> existingTemplate = templateRepository.findByUserAndName(currentUser, templateDto.getName().trim());
-            if (existingTemplate.isPresent()) {
-                throw new TemplateValidationException("Template with name '" + templateDto.getName().trim() + "' already exists");
+        try {
+            if (templateDto == null) {
+                throw new TemplateValidationException("Template data cannot be null");
             }
-        }
-        
-        EmailTemplate template = convertToEntity(templateDto);
-        template.setUser(currentUser);
-        template.setCreatedAt(LocalDateTime.now());
-        template.setUpdatedAt(LocalDateTime.now());
 
-        // Enforce one active template per category rule
-        if (template.getStatus() == EmailTemplate.Status.ACTIVE) {
-            enforceOneActiveTemplatePerCategory(currentUser, template.getCategory(), null);
-        }
+            // Additional placeholder validation at service level
+            validatePlaceholders(templateDto);
 
-        EmailTemplate saved = templateRepository.save(template);
-        isDatabaseAvailable = true;
-        return convertToDto(saved);
-    }
-    
-    private EmailTemplateDto createTemplateInMemory(EmailTemplateDto templateDto, User currentUser) {
-        // Check for duplicate names in memory
-        if (templateDto.getName() != null && !templateDto.getName().trim().isEmpty()) {
-            boolean nameExists = inMemoryTemplates.values().stream()
-                .anyMatch(t -> t.getName().equals(templateDto.getName().trim()) && 
-                              t.getUser().getId().equals(currentUser.getId()));
-            if (nameExists) {
-                throw new TemplateValidationException("Template with name '" + templateDto.getName().trim() + "' already exists");
+            User currentUser = getCurrentUser();
+
+            // Check if template with same name already exists for this user
+            if (templateDto.getName() != null && !templateDto.getName().trim().isEmpty()) {
+                Optional<EmailTemplate> existingTemplate = templateFirestoreRepository.findByUserAndName(currentUser.getId(), templateDto.getName().trim());
+                if (existingTemplate.isPresent()) {
+                    throw new TemplateValidationException("Template with name '" + templateDto.getName().trim() + "' already exists");
+                }
             }
-        }
-        
-        EmailTemplate template = convertToEntity(templateDto);
-        template.setId(inMemoryIdCounter++);
-        template.setUser(currentUser);
-        template.setCreatedAt(LocalDateTime.now());
-        template.setUpdatedAt(LocalDateTime.now());
-        
-        inMemoryTemplates.put(template.getId(), template);
-        return convertToDto(template);
-    }
 
-    @Override
-    public EmailTemplateDto updateTemplate(Long id, EmailTemplateDto templateDto) {
-        // Validate placeholders before updating
-        validatePlaceholders(templateDto);
-        
-        User currentUser = getCurrentUser();
-        EmailTemplate existingTemplate = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        // Temporarily disable ownership check for testing
-        // if (!existingTemplate.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
-        
-        // Check if name is being changed and if new name already exists
-        if (!existingTemplate.getName().equals(templateDto.getName())) {
-            Optional<EmailTemplate> nameConflict = templateRepository.findByUserAndName(currentUser, templateDto.getName());
-            if (nameConflict.isPresent() && !nameConflict.get().getId().equals(id)) {
-                throw new RuntimeException("Template with name '" + templateDto.getName() + "' already exists");
+            EmailTemplate template = convertToEntity(templateDto);
+            template.setUserId(currentUser.getId());
+            template.setCreatedAt(Timestamp.now());
+            template.setUpdatedAt(Timestamp.now());
+
+            // Enforce one active template per category rule
+            if (template.getStatusEnum() == EmailTemplate.Status.ACTIVE) {
+                enforceOneActiveTemplatePerCategory(currentUser, template.getCategoryEnum(), null);
             }
+
+            EmailTemplate saved = templateFirestoreRepository.save(currentUser.getId(), template);
+            return convertToDto(saved);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error creating template", e);
         }
-        
-        existingTemplate.setName(templateDto.getName());
-        existingTemplate.setSubject(templateDto.getSubject());
-        existingTemplate.setBody(templateDto.getBody());
-        existingTemplate.setCategory(templateDto.getCategory());
-        existingTemplate.setStatus(templateDto.getStatus());
-        existingTemplate.setTags(convertTagsToString(templateDto.getTags()));
-        existingTemplate.setUpdatedAt(LocalDateTime.now());
+    }
 
-        // Enforce one active template per category rule
-        if (templateDto.getStatus() == EmailTemplate.Status.ACTIVE) {
-            enforceOneActiveTemplatePerCategory(currentUser, templateDto.getCategory(), id);
+    @Override
+    public EmailTemplateDto updateTemplate(String id, EmailTemplateDto templateDto) {
+        try {
+            // Validate placeholders before updating
+            validatePlaceholders(templateDto);
+
+            User currentUser = getCurrentUser();
+            EmailTemplate existingTemplate = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
+
+            // Check if name is being changed and if new name already exists
+            if (!existingTemplate.getName().equals(templateDto.getName())) {
+                Optional<EmailTemplate> nameConflict = templateFirestoreRepository.findByUserAndName(currentUser.getId(), templateDto.getName());
+                if (nameConflict.isPresent() && !nameConflict.get().getId().equals(id)) {
+                    throw new RuntimeException("Template with name '" + templateDto.getName() + "' already exists");
+                }
+            }
+
+            existingTemplate.setName(templateDto.getName());
+            existingTemplate.setSubject(templateDto.getSubject());
+            existingTemplate.setBody(templateDto.getBody());
+            existingTemplate.setCategoryEnum(templateDto.getCategory());
+            existingTemplate.setStatusEnum(templateDto.getStatus());
+            existingTemplate.setTags(convertTagsToString(templateDto.getTags()));
+            existingTemplate.setUpdatedAt(Timestamp.now());
+
+            // Enforce one active template per category rule
+            if (templateDto.getStatus() == EmailTemplate.Status.ACTIVE) {
+                enforceOneActiveTemplatePerCategory(currentUser, templateDto.getCategory(), id);
+            }
+
+            EmailTemplate updated = templateFirestoreRepository.save(currentUser.getId(), existingTemplate);
+            return convertToDto(updated);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error updating template", e);
         }
-
-        EmailTemplate updated = templateRepository.save(existingTemplate);
-        return convertToDto(updated);
     }
 
     @Override
-    public void deleteTemplate(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate template = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        // Temporarily disable ownership check for testing
-        // if (!template.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
-        
-        templateRepository.deleteById(id);
-    }
+    public void deleteTemplate(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
 
-    @Override
-    public EmailTemplateDto duplicateTemplate(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate originalTemplate = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        if (!originalTemplate.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Access denied: Template belongs to another user");
+            templateFirestoreRepository.delete(currentUser.getId(), id);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error deleting template", e);
         }
-        
-        EmailTemplate duplicatedTemplate = new EmailTemplate();
-        duplicatedTemplate.setUser(currentUser);
-        duplicatedTemplate.setName(originalTemplate.getName() + " (Copy)");
-        duplicatedTemplate.setSubject(originalTemplate.getSubject());
-        duplicatedTemplate.setBody(originalTemplate.getBody());
-        duplicatedTemplate.setCategory(originalTemplate.getCategory());
-        duplicatedTemplate.setStatus(EmailTemplate.Status.DRAFT);
-        duplicatedTemplate.setUsageCount(0L);
-        duplicatedTemplate.setEmailsSent(0L);
-        duplicatedTemplate.setResponseRate(0.0);
-        duplicatedTemplate.setTags(originalTemplate.getTags());
-        duplicatedTemplate.setCreatedAt(LocalDateTime.now());
-        duplicatedTemplate.setUpdatedAt(LocalDateTime.now());
-        
-        EmailTemplate saved = templateRepository.save(duplicatedTemplate);
-        return convertToDto(saved);
     }
 
     @Override
-    public void archiveTemplate(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate template = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        // Temporarily disable ownership check for testing
-        // if (!template.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
-        
-        template.setStatus(EmailTemplate.Status.ARCHIVED);
-        template.setUpdatedAt(LocalDateTime.now());
-        templateRepository.save(template);
+    public EmailTemplateDto duplicateTemplate(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate originalTemplate = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
+
+            if (!originalTemplate.getUserId().equals(currentUser.getId())) {
+                throw new RuntimeException("Access denied: Template belongs to another user");
+            }
+
+            EmailTemplate duplicatedTemplate = new EmailTemplate();
+            duplicatedTemplate.setUserId(currentUser.getId());
+            duplicatedTemplate.setName(originalTemplate.getName() + " (Copy)");
+            duplicatedTemplate.setSubject(originalTemplate.getSubject());
+            duplicatedTemplate.setBody(originalTemplate.getBody());
+            duplicatedTemplate.setCategoryEnum(originalTemplate.getCategoryEnum());
+            duplicatedTemplate.setStatusEnum(EmailTemplate.Status.DRAFT);
+            duplicatedTemplate.setUsageCount(0L);
+            duplicatedTemplate.setEmailsSent(0L);
+            duplicatedTemplate.setResponseRate(0.0);
+            duplicatedTemplate.setTags(originalTemplate.getTags());
+            duplicatedTemplate.setCreatedAt(Timestamp.now());
+            duplicatedTemplate.setUpdatedAt(Timestamp.now());
+
+            EmailTemplate saved = templateFirestoreRepository.save(currentUser.getId(), duplicatedTemplate);
+            return convertToDto(saved);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error duplicating template", e);
+        }
     }
 
     @Override
-    public void activateTemplate(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate template = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
+    public void archiveTemplate(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
 
-        // Temporarily disable ownership check for testing
-        // if (!template.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
+            template.setStatusEnum(EmailTemplate.Status.ARCHIVED);
+            template.setUpdatedAt(Timestamp.now());
+            templateFirestoreRepository.save(currentUser.getId(), template);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error archiving template", e);
+        }
+    }
 
-        // Enforce one active template per category rule
-        enforceOneActiveTemplatePerCategory(currentUser, template.getCategory(), id);
+    @Override
+    public void activateTemplate(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
 
-        template.setStatus(EmailTemplate.Status.ACTIVE);
-        template.setUpdatedAt(LocalDateTime.now());
-        templateRepository.save(template);
+            // Enforce one active template per category rule
+            enforceOneActiveTemplatePerCategory(currentUser, template.getCategoryEnum(), id);
+
+            template.setStatusEnum(EmailTemplate.Status.ACTIVE);
+            template.setUpdatedAt(Timestamp.now());
+            templateFirestoreRepository.save(currentUser.getId(), template);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error activating template", e);
+        }
     }
 
     @Override
     public Map<String, Object> getTemplateStats() {
-        User currentUser = getCurrentUser();
-        
-        long totalTemplates = templateRepository.countByUser(currentUser);
-        long activeTemplates = templateRepository.countByUserAndStatus(currentUser, EmailTemplate.Status.ACTIVE);
-        long draftTemplates = templateRepository.countByUserAndStatus(currentUser, EmailTemplate.Status.DRAFT);
-        long archivedTemplates = templateRepository.countByUserAndStatus(currentUser, EmailTemplate.Status.ARCHIVED);
-        
-        List<EmailTemplate> templates = templateRepository.findByUser(currentUser);
-        double avgResponseRate = templates.stream()
-                .mapToDouble(EmailTemplate::getResponseRate)
-                .average()
-                .orElse(0.0);
-        
-        long totalUsage = templates.stream()
-                .mapToLong(EmailTemplate::getUsageCount)
-                .sum();
-        
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalTemplates", totalTemplates);
-        stats.put("activeTemplates", activeTemplates);
-        stats.put("draftTemplates", draftTemplates);
-        stats.put("archivedTemplates", archivedTemplates);
-        stats.put("avgResponseRate", Math.round(avgResponseRate * 100.0) / 100.0);
-        stats.put("totalUsage", totalUsage);
-        
-        return stats;
+        try {
+            User currentUser = getCurrentUser();
+
+            long totalTemplates = templateFirestoreRepository.countByUser(currentUser.getId());
+            long activeTemplates = templateFirestoreRepository.countByUserAndStatus(currentUser.getId(), EmailTemplate.Status.ACTIVE.name());
+            long draftTemplates = templateFirestoreRepository.countByUserAndStatus(currentUser.getId(), EmailTemplate.Status.DRAFT.name());
+            long archivedTemplates = templateFirestoreRepository.countByUserAndStatus(currentUser.getId(), EmailTemplate.Status.ARCHIVED.name());
+
+            List<EmailTemplate> templates = templateFirestoreRepository.findByUser(currentUser.getId());
+            double avgResponseRate = templates.stream()
+                    .mapToDouble(EmailTemplate::getResponseRate)
+                    .average()
+                    .orElse(0.0);
+
+            long totalUsage = templates.stream()
+                    .mapToLong(EmailTemplate::getUsageCount)
+                    .sum();
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("totalTemplates", totalTemplates);
+            stats.put("activeTemplates", activeTemplates);
+            stats.put("draftTemplates", draftTemplates);
+            stats.put("archivedTemplates", archivedTemplates);
+            stats.put("avgResponseRate", Math.round(avgResponseRate * 100.0) / 100.0);
+            stats.put("totalUsage", totalUsage);
+
+            return stats;
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching template stats", e);
+        }
     }
 
     @Override
-    public void incrementUsage(Long id) {
-        User currentUser = getCurrentUser();
-        EmailTemplate template = templateRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
-        
-        // Temporarily disable ownership check for testing
-        // if (!template.getUser().getId().equals(currentUser.getId())) {
-        //     throw new RuntimeException("Access denied: Template belongs to another user");
-        // }
-        
-        template.setUsageCount(template.getUsageCount() + 1);
-        template.setLastUsed(LocalDateTime.now());
-        template.setUpdatedAt(LocalDateTime.now());
-        templateRepository.save(template);
+    public void incrementUsage(String id) {
+        try {
+            User currentUser = getCurrentUser();
+            EmailTemplate template = templateFirestoreRepository.findById(currentUser.getId(), id)
+                    .orElseThrow(() -> new RuntimeException("Template not found with id: " + id));
+
+            template.setUsageCount(template.getUsageCount() + 1);
+            template.setLastUsed(Timestamp.now());
+            template.setUpdatedAt(Timestamp.now());
+            templateFirestoreRepository.save(currentUser.getId(), template);
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error incrementing usage", e);
+        }
     }
 
     @Override
     public List<EmailTemplateDto> searchTemplates(String query, EmailTemplate.Category category, EmailTemplate.Status status) {
-        User currentUser = getCurrentUser();
-        List<EmailTemplate> templates;
-        
-        if (category != null && status != null) {
-            templates = templateRepository.findByUserAndCategoryAndStatus(currentUser, category, status);
-        } else if (category != null) {
-            templates = templateRepository.findByUserAndCategory(currentUser, category);
-        } else if (status != null) {
-            templates = templateRepository.findByUserAndStatus(currentUser, status);
-        } else {
-            templates = templateRepository.findByUser(currentUser);
-        }
-        
-        if (query != null && !query.trim().isEmpty()) {
-            String lowerQuery = query.toLowerCase().trim();
-            templates = templates.stream()
-                    .filter(template -> 
-                        template.getName().toLowerCase().contains(lowerQuery) ||
-                        template.getSubject().toLowerCase().contains(lowerQuery) ||
-                        template.getBody().toLowerCase().contains(lowerQuery) ||
-                        template.getCategory().toString().toLowerCase().contains(lowerQuery) ||
-                        (template.getTags() != null && template.getTags().toLowerCase().contains(lowerQuery))
-                    )
+        try {
+            User currentUser = getCurrentUser();
+            List<EmailTemplate> templates;
+
+            if (category != null && status != null) {
+                templates = templateFirestoreRepository.findByUserAndCategoryAndStatus(currentUser.getId(), category.name(), status.name());
+            } else if (category != null) {
+                templates = templateFirestoreRepository.findByUserAndCategory(currentUser.getId(), category.name());
+            } else if (status != null) {
+                templates = templateFirestoreRepository.findByUserAndStatus(currentUser.getId(), status.name());
+            } else {
+                templates = templateFirestoreRepository.findByUser(currentUser.getId());
+            }
+
+            if (query != null && !query.trim().isEmpty()) {
+                String lowerQuery = query.toLowerCase().trim();
+                templates = templates.stream()
+                        .filter(template ->
+                            template.getName().toLowerCase().contains(lowerQuery) ||
+                            template.getSubject().toLowerCase().contains(lowerQuery) ||
+                            template.getBody().toLowerCase().contains(lowerQuery) ||
+                            template.getCategory().toLowerCase().contains(lowerQuery) ||
+                            (template.getTags() != null && template.getTags().toLowerCase().contains(lowerQuery))
+                        )
+                        .collect(Collectors.toList());
+            }
+
+            return templates.stream()
+                    .map(this::convertToDto)
                     .collect(Collectors.toList());
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error searching templates", e);
         }
-        
-        return templates.stream()
-                .map(this::convertToDto)
-                .collect(Collectors.toList());
     }
 
     @Override
     public void clearAllTemplates() {
-        User currentUser = getCurrentUser();
-        List<EmailTemplate> userTemplates = templateRepository.findByUser(currentUser);
-        templateRepository.deleteAll(userTemplates);
+        try {
+            User currentUser = getCurrentUser();
+            List<EmailTemplate> userTemplates = templateFirestoreRepository.findByUser(currentUser.getId());
+            for (EmailTemplate template : userTemplates) {
+                templateFirestoreRepository.delete(currentUser.getId(), template.getId());
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error clearing templates", e);
+        }
     }
 
     private User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
-            String email = authentication.getName();
-            return userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("Current user not found: " + email));
+            if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
+                String email = authentication.getName();
+                return userFirestoreRepository.findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("Current user not found: " + email));
+            }
+
+            // If not authenticated, throw an exception instead of returning a random user
+            throw new RuntimeException("User not authenticated. Please log in.");
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error fetching current user", e);
         }
-
-        // If not authenticated, throw an exception instead of returning a random user
-        throw new RuntimeException("User not authenticated. Please log in.");
-    }
-    
-    private User createMockUser(String email) {
-        User mockUser = new User();
-        mockUser.setId(1L);
-        mockUser.setEmail(email);
-        mockUser.setName("Mock User");
-        mockUser.setPassword("mockpassword");
-        mockUser.setProvider(User.Provider.LOCAL);
-        return mockUser;
     }
 
     private EmailTemplateDto convertToDto(EmailTemplate template) {
@@ -365,16 +371,16 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         dto.setName(template.getName());
         dto.setSubject(template.getSubject());
         dto.setBody(template.getBody());
-        dto.setCategory(template.getCategory());
-        dto.setStatus(template.getStatus());
+        dto.setCategory(template.getCategoryEnum());
+        dto.setStatus(template.getStatusEnum());
         dto.setUsageCount(template.getUsageCount());
         dto.setEmailsSent(template.getEmailsSent());
         dto.setResponseRate(template.getResponseRate());
         dto.setTags(convertTagsFromString(template.getTags()));
         dto.setIsDefault(template.getIsDefault());
-        dto.setLastUsed(template.getLastUsed());
-        dto.setCreatedAt(template.getCreatedAt());
-        dto.setUpdatedAt(template.getUpdatedAt());
+        dto.setLastUsed(convertToLocalDateTime(template.getLastUsed()));
+        dto.setCreatedAt(convertToLocalDateTime(template.getCreatedAt()));
+        dto.setUpdatedAt(convertToLocalDateTime(template.getUpdatedAt()));
         return dto;
     }
 
@@ -382,13 +388,13 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
         if (dto == null) {
             throw new TemplateValidationException("Template DTO cannot be null");
         }
-        
+
         EmailTemplate template = new EmailTemplate();
         template.setName(dto.getName() != null ? dto.getName().trim() : "");
         template.setSubject(dto.getSubject() != null ? dto.getSubject().trim() : "");
         template.setBody(dto.getBody() != null ? dto.getBody().trim() : "");
-        template.setCategory(dto.getCategory() != null ? dto.getCategory() : EmailTemplate.Category.OUTREACH);
-        template.setStatus(dto.getStatus() != null ? dto.getStatus() : EmailTemplate.Status.DRAFT);
+        template.setCategoryEnum(dto.getCategory() != null ? dto.getCategory() : EmailTemplate.Category.OUTREACH);
+        template.setStatusEnum(dto.getStatus() != null ? dto.getStatus() : EmailTemplate.Status.DRAFT);
         template.setUsageCount(dto.getUsageCount() != null ? dto.getUsageCount() : 0L);
         template.setEmailsSent(dto.getEmailsSent() != null ? dto.getEmailsSent() : 0L);
         template.setResponseRate(dto.getResponseRate() != null ? dto.getResponseRate() : 0.0);
@@ -418,21 +424,21 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             return "[]";
         }
     }
-    
+
     private void validatePlaceholders(EmailTemplateDto templateDto) {
         Set<String> validPlaceholders = Set.of("Company", "Role", "RecruiterName", "MyName");
-        
+
         // Validate subject placeholders
         if (templateDto.getSubject() != null) {
             validatePlaceholdersInText(templateDto.getSubject(), "subject", validPlaceholders);
         }
-        
+
         // Validate body placeholders
         if (templateDto.getBody() != null) {
             validatePlaceholdersInText(templateDto.getBody(), "body", validPlaceholders);
         }
     }
-    
+
     private void validatePlaceholdersInText(String text, String fieldName, Set<String> validPlaceholders) {
         // Check for unmatched braces
         long openBraces = text.chars().filter(ch -> ch == '{').count();
@@ -477,6 +483,19 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
     }
 
     /**
+     * Helper method to convert Firestore Timestamp to LocalDateTime
+     */
+    private java.time.LocalDateTime convertToLocalDateTime(com.google.cloud.Timestamp timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        return java.time.LocalDateTime.ofInstant(
+                java.time.Instant.ofEpochSecond(timestamp.getSeconds(), timestamp.getNanos()),
+                java.time.ZoneId.systemDefault()
+        );
+    }
+
+    /**
      * Enforces the rule that only one template per category can be active at a time.
      * When activating a template, deactivates any other active template in the same category.
      *
@@ -484,22 +503,26 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
      * @param category The category of the template being activated
      * @param excludeTemplateId Template ID to exclude from deactivation (for updates)
      */
-    private void enforceOneActiveTemplatePerCategory(User user, EmailTemplate.Category category, Long excludeTemplateId) {
-        // Find all active templates in the same category for this user
-        List<EmailTemplate> activeTemplatesInCategory = templateRepository.findByUserAndCategoryAndStatus(
-            user, category, EmailTemplate.Status.ACTIVE);
+    private void enforceOneActiveTemplatePerCategory(User user, EmailTemplate.Category category, String excludeTemplateId) {
+        try {
+            // Find all active templates in the same category for this user
+            List<EmailTemplate> activeTemplatesInCategory = templateFirestoreRepository.findByUserAndCategoryAndStatus(
+                user.getId(), category.name(), EmailTemplate.Status.ACTIVE.name());
 
-        // Filter out the current template being updated (if any)
-        List<EmailTemplate> templatesToDeactivate = activeTemplatesInCategory.stream()
-            .filter(template -> excludeTemplateId == null || !template.getId().equals(excludeTemplateId))
-            .collect(Collectors.toList());
+            // Filter out the current template being updated (if any)
+            List<EmailTemplate> templatesToDeactivate = activeTemplatesInCategory.stream()
+                .filter(template -> excludeTemplateId == null || !template.getId().equals(excludeTemplateId))
+                .collect(Collectors.toList());
 
-        // Deactivate other active templates in the same category
-        for (EmailTemplate template : templatesToDeactivate) {
-            template.setStatus(EmailTemplate.Status.DRAFT);
-            template.setUpdatedAt(LocalDateTime.now());
-            templateRepository.save(template);
+            // Deactivate other active templates in the same category
+            for (EmailTemplate template : templatesToDeactivate) {
+                template.setStatusEnum(EmailTemplate.Status.DRAFT);
+                template.setUpdatedAt(Timestamp.now());
+                templateFirestoreRepository.save(user.getId(), template);
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Error enforcing one active template per category", e);
         }
     }
-
 }

@@ -1,60 +1,47 @@
 package com.ecold.entity;
 
-import jakarta.persistence.*;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name = "email_logs")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class EmailLog {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    // Campaign removed - direct email logs only
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recruiter_contact_id")
-    private RecruiterContact recruiterContact;
-    
-    @Column(nullable = false)
+    @DocumentId
+    private String id;
+
+    // userId is implicit in path: /users/{userId}/email_logs/{logId}
+    private String userId;
+
+    // Store recruiter ID instead of full object
+    private String recruiterContactId;
+
     private String recipientEmail;
-    
-    @Column(nullable = false)
     private String subject;
-    
-    @Column(columnDefinition = "TEXT")
     private String body;
-    
-    @Enumerated(EnumType.STRING)
-    private EmailStatus status;
-    
-    @Column(columnDefinition = "TEXT")
+    private String status; // Stored as String
     private String errorMessage;
-    
     private String messageId;
-    
-    private LocalDateTime sentAt;
-    
-    private LocalDateTime deliveredAt;
-    
-    private LocalDateTime openedAt;
-    
-    private LocalDateTime clickedAt;
-    
+    private Timestamp sentAt;
+    private Timestamp deliveredAt;
+    private Timestamp openedAt;
+    private Timestamp clickedAt;
     private Integer retryCount = 0;
-    
-    @CreationTimestamp
-    private LocalDateTime createdAt;
-    
+    private Timestamp createdAt;
+
     public enum EmailStatus {
         PENDING, SENDING, SENT, DELIVERED, OPENED, CLICKED, BOUNCED, FAILED
+    }
+
+    // Helper methods for enum conversion
+    public void setStatusEnum(EmailStatus status) {
+        this.status = status != null ? status.name() : null;
+    }
+
+    public EmailStatus getStatusEnum() {
+        return this.status != null ? EmailStatus.valueOf(this.status) : null;
     }
 }

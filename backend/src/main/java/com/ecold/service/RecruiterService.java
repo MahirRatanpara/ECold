@@ -9,34 +9,34 @@ import java.util.List;
 
 public interface RecruiterService {
     Page<RecruiterContactDto> getRecruiters(int page, int size, String status, String search, String company);
-    
+
     // Backward compatibility methods
     default Page<RecruiterContactDto> getRecruiters(int page, int size, String status, String search) {
         return getRecruiters(page, size, status, search, null);
     }
-    
+
     default Page<RecruiterContactDto> getRecruiters(int page, int size, String status) {
         return getRecruiters(page, size, status, null, null);
     }
-    
+
     RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto);
-    RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto, Long templateId);
-    RecruiterContactDto getRecruiterById(Long id);
-    RecruiterContactDto updateRecruiter(Long id, RecruiterContactDto recruiterDto);
-    void deleteRecruiter(Long id);
-    
+    RecruiterContactDto createRecruiter(RecruiterContactDto recruiterDto, String templateId);
+    RecruiterContactDto getRecruiterById(String id);
+    RecruiterContactDto updateRecruiter(String id, RecruiterContactDto recruiterDto);
+    void deleteRecruiter(String id);
+
     // Contact tracking
-    RecruiterContactDto markAsContacted(Long id);
-    
+    RecruiterContactDto markAsContacted(String id);
+
     List<RecruiterContactDto> importFromCsv(MultipartFile file);
-    List<RecruiterContactDto> importFromCsv(MultipartFile file, Long templateId);
+    List<RecruiterContactDto> importFromCsv(MultipartFile file, String templateId);
     List<RecruiterContactDto> importFromExcel(MultipartFile file);
     List<RecruiterContactDto> importManual(List<RecruiterContactDto> recruiters);
     List<RecruiterContactDto> importManualFromCsv(String csvData);
     Object getRecruiterStats();
     List<RecruiterContactDto> getUncontactedRecruiters();
-    
+
     // Bulk operations
-    void bulkDeleteRecruiters(List<Long> ids);
-    List<RecruiterContactDto> bulkUpdateStatus(List<Long> ids, String status);
+    void bulkDeleteRecruiters(List<String> ids);
+    List<RecruiterContactDto> bulkUpdateStatus(List<String> ids, String status);
 }

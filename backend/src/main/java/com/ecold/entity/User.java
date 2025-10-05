@@ -1,64 +1,46 @@
 package com.ecold.entity;
 
-import jakarta.persistence.*;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-@Entity
-@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(unique = true, nullable = false)
+    @DocumentId
+    private String id;
+
     private String email;
-    
-    @Column(nullable = false)
     private String name;
-    
-    @Column
     private String password;
-    
     private String profilePicture;
-    
-    @Enumerated(EnumType.STRING)
-    private Provider provider;
-    
+    private String provider; // Stored as String in Firestore
     private String providerId;
-    
-    @Column(columnDefinition = "TEXT")
     private String accessToken;
-    
-    @Column(columnDefinition = "TEXT")
     private String refreshToken;
-    
-    private LocalDateTime tokenExpiresAt;
-    
-    @CreationTimestamp
-    private LocalDateTime createdAt;
-    
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
-    
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<EmailTemplate> emailTemplates;
-    
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<RecruiterContact> recruiterContacts;
-    
-    
-    
+    private Timestamp tokenExpiresAt;
+    private Timestamp createdAt;
+    private Timestamp updatedAt;
+
+    // Note: Firestore relationships are handled via subcollections
+    // /users/{userId}/templates/
+    // /users/{userId}/recruiters/
+    // No need to store lists here
+
     public enum Provider {
         GOOGLE, MICROSOFT, LOCAL
+    }
+
+    // Helper method to convert enum to string
+    public void setProviderEnum(Provider provider) {
+        this.provider = provider != null ? provider.name() : null;
+    }
+
+    // Helper method to get enum from string
+    public Provider getProviderEnum() {
+        return this.provider != null ? Provider.valueOf(this.provider) : null;
     }
 }

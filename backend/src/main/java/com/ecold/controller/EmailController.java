@@ -4,7 +4,7 @@ import com.ecold.dto.EmailRequest;
 import com.ecold.dto.EmailResponse;
 import com.ecold.entity.User;
 import com.ecold.service.EmailService;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @RestController
@@ -26,10 +27,10 @@ import java.util.Map;
 public class EmailController {
 
     private final EmailService emailService;
-    private final UserRepository userRepository;
+    private final UserFirestoreRepository userRepository;
 
     public EmailController(@Qualifier("emailServiceImpl") EmailService emailService,
-                          UserRepository userRepository) {
+                          UserFirestoreRepository userRepository) {
         this.emailService = emailService;
         this.userRepository = userRepository;
     }
@@ -58,8 +59,8 @@ public class EmailController {
 
     @PostMapping("/send-template")
     public ResponseEntity<EmailResponse> sendTemplateEmail(
-            @RequestParam Long templateId,
-            @RequestParam Long recruiterId,
+            @RequestParam String templateId,
+            @RequestParam String recruiterId,
             @RequestParam(required = false) String scheduleTime,
             @RequestBody(required = false) Map<String, String> additionalData,
             Authentication authentication) {
@@ -152,9 +153,15 @@ public class EmailController {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("User not authenticated");
         }
-        
+
         String email = authentication.getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found: " + email));
+        try {
+            return userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + email));
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("Error fetching user by email: {}", email, e);
+            throw new RuntimeException("Error fetching user: " + e.getMessage(), e);
+        }
     }
 }
+

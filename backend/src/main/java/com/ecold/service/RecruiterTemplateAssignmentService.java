@@ -10,26 +10,25 @@ import java.util.List;
 
 public interface RecruiterTemplateAssignmentService {
 
-    Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplate(Long templateId, Pageable pageable);
+    Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplate(String templateId, Pageable pageable);
 
-    Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplateAndDateRange(Long templateId, LocalDate startDate, LocalDate endDate, Pageable pageable);
+    Page<RecruiterTemplateAssignmentDto> getRecruitersForTemplateAndDateRange(String templateId, LocalDate startDate, LocalDate endDate, Pageable pageable);
 
-    List<TemplateWeekSummaryDto> getDateRangeSummariesForTemplate(Long templateId);
+    List<TemplateWeekSummaryDto> getDateRangeSummariesForTemplate(String templateId);
 
-    List<RecruiterTemplateAssignmentDto> getRecruitersForDateRange(Long templateId, LocalDate startDate, LocalDate endDate);
+    List<RecruiterTemplateAssignmentDto> getRecruitersForDateRange(String templateId, LocalDate startDate, LocalDate endDate);
 
-    RecruiterTemplateAssignmentDto assignRecruiterToTemplate(Long recruiterId, Long templateId);
+    RecruiterTemplateAssignmentDto assignRecruiterToTemplate(String recruiterId, String templateId);
 
-    List<RecruiterTemplateAssignmentDto> bulkAssignRecruitersToTemplate(List<Long> recruiterIds, Long templateId);
+    List<RecruiterTemplateAssignmentDto> bulkAssignRecruitersToTemplate(List<String> recruiterIds, String templateId);
 
-    void moveRecruiterToFollowupTemplate(Long assignmentId);
+    void moveRecruiterToFollowupTemplate(String assignmentId);
 
-
-    void markEmailSent(Long assignmentId);
+    void markEmailSent(String assignmentId);
 
     List<RecruiterTemplateAssignmentDto> getActiveAssignments();
 
-    void deleteAssignment(Long assignmentId);
+    void deleteAssignment(String assignmentId);
 
-    List<RecruiterTemplateAssignmentDto> bulkDeleteAssignments(List<Long> assignmentIds);
+    List<RecruiterTemplateAssignmentDto> bulkDeleteAssignments(List<String> assignmentIds);
 }
