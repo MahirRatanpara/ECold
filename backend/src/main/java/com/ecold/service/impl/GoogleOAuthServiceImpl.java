@@ -36,7 +36,7 @@ public class GoogleOAuthServiceImpl implements GoogleOAuthService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${spring.security.oauth2.client.registration.google.redirect-uri:http://localhost:4200/auth/google/callback}")
+    @Value("${spring.security.oauth2.client.registration.google.redirect-uri}")
     private String redirectUri;
 
     @Override
