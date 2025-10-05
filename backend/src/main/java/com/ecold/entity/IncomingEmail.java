@@ -1,66 +1,37 @@
 package com.ecold.entity;
 
-import jakarta.persistence.*;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name = "incoming_emails")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class IncomingEmail {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-    
-    @Column(nullable = false)
+    @DocumentId
+    private String id;
+
+    // userId is implicit in path: /users/{userId}/incoming_emails/{emailId}
+    private String userId;
+
     private String messageId;
-    
-    @Column(nullable = false)
     private String senderEmail;
-    
     private String senderName;
-    
-    @Column(nullable = false)
     private String subject;
-    
-    @Column(columnDefinition = "TEXT")
     private String body;
-    
-    @Column(columnDefinition = "TEXT")
     private String htmlBody;
-    
-    @Enumerated(EnumType.STRING)
-    private EmailCategory category;
-    
-    @Enumerated(EnumType.STRING)
-    private EmailPriority priority = EmailPriority.NORMAL;
-    
-    private boolean isRead = false;
-    
-    private boolean isProcessed = false;
-    
-    private LocalDateTime receivedAt;
-    
-    @CreationTimestamp
-    private LocalDateTime createdAt;
-    
+    private String category; // Stored as String
+    private String priority; // Stored as String
+    private Boolean isRead = false;
+    private Boolean isProcessed = false;
+    private Timestamp receivedAt;
+    private Timestamp createdAt;
     private String threadId;
-    
-    @Column(columnDefinition = "TEXT")
     private String keywords;
-    
     private Double confidenceScore;
-    
+
     public enum EmailCategory {
         APPLICATION_UPDATE,
         SHORTLIST_INTERVIEW,
@@ -70,8 +41,25 @@ public class IncomingEmail {
         SPAM,
         UNKNOWN
     }
-    
+
     public enum EmailPriority {
         HIGH, NORMAL, LOW
+    }
+
+    // Helper methods for enum conversion
+    public void setCategoryEnum(EmailCategory category) {
+        this.category = category != null ? category.name() : null;
+    }
+
+    public EmailCategory getCategoryEnum() {
+        return this.category != null ? EmailCategory.valueOf(this.category) : null;
+    }
+
+    public void setPriorityEnum(EmailPriority priority) {
+        this.priority = priority != null ? priority.name() : null;
+    }
+
+    public EmailPriority getPriorityEnum() {
+        return this.priority != null ? EmailPriority.valueOf(this.priority) : null;
     }
 }

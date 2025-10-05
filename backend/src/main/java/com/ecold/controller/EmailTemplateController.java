@@ -78,7 +78,7 @@ public class EmailTemplateController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EmailTemplateDto> getTemplateById(@PathVariable Long id) {
+    public ResponseEntity<EmailTemplateDto> getTemplateById(@PathVariable String id) {
         EmailTemplateDto template = emailTemplateService.getTemplateById(id);
         return ResponseEntity.ok(template);
     }
@@ -91,38 +91,38 @@ public class EmailTemplateController {
 
     @PutMapping("/{id}")
     public ResponseEntity<EmailTemplateDto> updateTemplate(
-            @PathVariable Long id, 
+            @PathVariable String id, 
             @Valid @RequestBody EmailTemplateDto templateDto) {
         EmailTemplateDto updated = emailTemplateService.updateTemplate(id, templateDto);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTemplate(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTemplate(@PathVariable String id) {
         emailTemplateService.deleteTemplate(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/duplicate")
-    public ResponseEntity<EmailTemplateDto> duplicateTemplate(@PathVariable Long id) {
+    public ResponseEntity<EmailTemplateDto> duplicateTemplate(@PathVariable String id) {
         EmailTemplateDto duplicated = emailTemplateService.duplicateTemplate(id);
         return ResponseEntity.ok(duplicated);
     }
 
     @PutMapping("/{id}/archive")
-    public ResponseEntity<Void> archiveTemplate(@PathVariable Long id) {
+    public ResponseEntity<Void> archiveTemplate(@PathVariable String id) {
         emailTemplateService.archiveTemplate(id);
         return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/activate")
-    public ResponseEntity<Void> activateTemplate(@PathVariable Long id) {
+    public ResponseEntity<Void> activateTemplate(@PathVariable String id) {
         emailTemplateService.activateTemplate(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/use")
-    public ResponseEntity<Void> useTemplate(@PathVariable Long id) {
+    public ResponseEntity<Void> useTemplate(@PathVariable String id) {
         emailTemplateService.incrementUsage(id);
         return ResponseEntity.ok().build();
     }

@@ -1,50 +1,27 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: ecold_postgres
-    environment:
-      POSTGRES_DB: ecold
-      POSTGRES_USER: ecold_user
-      POSTGRES_PASSWORD: ecold_pass123
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecold_user -d ecold"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # Spring Boot Backend
   backend:
     build: ../backend
     container_name: ecold_backend
     environment:
-      # Database
-      DATABASE_URL: jdbc:postgresql://postgres:5432/ecold
-      DATABASE_USERNAME: ecold_user
-      DATABASE_PASSWORD: ecold_pass123
+      # Firebase/Firestore
+      GOOGLE_CLOUD_PROJECT_ID: ${GOOGLE_CLOUD_PROJECT_ID:-ecold-app-d3990}
+      FIRESTORE_CREDENTIALS_PATH: ${FIRESTORE_CREDENTIALS_PATH:-classpath:firestore-key.json}
 
       # OAuth (from .env file)
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      
+
       # Application
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET:-ecold_development_secret_key}
-      
+
     volumes:
       - upload_data:/app/uploads
     ports:
       - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 30s
@@ -65,20 +42,5 @@ services:
       timeout: 10s
       retries: 3
 
-  # PgAdmin (optional - for database management)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ecold_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@ecold.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-    profiles:
-      - tools
-
 volumes:
-  postgres_data:
   upload_data:

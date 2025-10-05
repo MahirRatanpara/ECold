@@ -28,7 +28,7 @@ scripts\start.bat
 ### Access Points
 - **Frontend**: http://localhost:4200
 - **Backend API**: http://localhost:8080/api
-- **Database Admin**: http://localhost:5050 (admin@ecold.com / admin123)
+- **Firebase Console**: https://console.firebase.google.com/project/ecold-app-d3990/firestore
 
 ## 📋 Features
 
@@ -46,7 +46,8 @@ scripts\start.bat
 - OAuth 2.0 authentication (Google & Microsoft)
 - JWT-based session management
 - Gmail & Outlook API integration
-- PostgreSQL database with full-text search
+- Firebase Firestore (NoSQL database - **FREE Tier**)
+- User-based data isolation with Firestore Security Rules
 
 ## 📁 Project Structure
 
@@ -85,8 +86,8 @@ ECold/
 ### Backend
 - **Framework**: Spring Boot 3.2.0
 - **Language**: Java 17
-- **Database**: PostgreSQL 15
-- **Security**: Spring Security + OAuth 2.0
+- **Database**: Firebase Firestore (NoSQL - **FREE Tier**)
+- **Security**: Spring Security + OAuth 2.0 + Firestore Security Rules
 - **Email**: Gmail API, Microsoft Graph API
 - **Scheduler**: Spring @Scheduled
 
@@ -166,11 +167,13 @@ npm start
 
 ### Database Access
 ```bash
-# Connect to PostgreSQL
-cd infra && docker-compose exec postgres psql -U ecold_user -d ecold
+# Access Firestore Console
+# Open: https://console.firebase.google.com/project/ecold-app-d3990/firestore
 
-# PgAdmin UI
-http://localhost:5050
+# Initialize Firestore schema (if needed)
+cd database
+npm install firebase-admin
+node initialize-firestore-schema.js
 ```
 
 ## 🤝 Contributing

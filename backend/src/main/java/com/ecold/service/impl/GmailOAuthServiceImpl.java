@@ -3,7 +3,7 @@ package com.ecold.service.impl;
 import com.ecold.dto.EmailRequest;
 import com.ecold.dto.EmailResponse;
 import com.ecold.entity.User;
-import com.ecold.repository.UserRepository;
+import com.ecold.repository.firestore.UserFirestoreRepository;
 import com.ecold.service.EmailService;
 import com.ecold.service.GoogleOAuthService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
@@ -30,13 +30,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service("gmailOAuthService")
 @RequiredArgsConstructor
 public class GmailOAuthServiceImpl implements EmailService {
 
-    private final UserRepository userRepository;
+    private final UserFirestoreRepository userRepository;
     private final GoogleOAuthService googleOAuthService;
 
     @Override
@@ -58,7 +59,15 @@ public class GmailOAuthServiceImpl implements EmailService {
                     return EmailResponse.failure("TOKEN_REFRESH_FAILED", "Failed to refresh Gmail authentication");
                 }
                 // Reload user with updated token
-                user = userRepository.findById(user.getId()).orElse(user);
+                try {
+                    user = userRepository.findById(user.getId()).orElse(user);
+                } catch (ExecutionException | InterruptedException e) {
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    log.error("Error reloading user after token refresh", e);
+                    throw new RuntimeException("Failed to reload user after token refresh", e);
+                }
             }
 
             // Send email using Gmail API
@@ -75,13 +84,13 @@ public class GmailOAuthServiceImpl implements EmailService {
     }
 
     @Override
-    public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData) {
+    public EmailResponse sendTemplateEmail(String templateId, String recruiterId, User user, Map<String, String> additionalData) {
         // This will be implemented by the main EmailServiceImpl which can delegate to this service
         throw new UnsupportedOperationException("Template email sending should be handled by EmailServiceImpl");
     }
 
     @Override
-    public EmailResponse sendTemplateEmail(Long templateId, Long recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime) {
+    public EmailResponse sendTemplateEmail(String templateId, String recruiterId, User user, Map<String, String> additionalData, LocalDateTime scheduleTime) {
         // This will be implemented by the main EmailServiceImpl which can delegate to this service
         throw new UnsupportedOperationException("Template email sending should be handled by EmailServiceImpl");
     }
@@ -117,6 +126,12 @@ public class GmailOAuthServiceImpl implements EmailService {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
             User user = userRepository.findByEmail(email).orElse(null);
             return user != null && hasValidGmailTokens(user);
+        } catch (ExecutionException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("Error validating Gmail OAuth settings: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to validate Gmail OAuth settings", e);
         } catch (Exception e) {
             log.error("Error validating Gmail OAuth settings: {}", e.getMessage(), e);
             return false;
@@ -137,14 +152,19 @@ public class GmailOAuthServiceImpl implements EmailService {
     }
 
     private boolean hasValidGmailTokens(User user) {
-        return user.getProvider() == User.Provider.GOOGLE &&
+        return user.getProviderEnum() == User.Provider.GOOGLE &&
                user.getAccessToken() != null &&
                !user.getAccessToken().isEmpty();
     }
 
     private boolean isTokenExpired(User user) {
-        return user.getTokenExpiresAt() != null &&
-               user.getTokenExpiresAt().isBefore(LocalDateTime.now().minusMinutes(5)); // 5 min buffer
+        if (user.getTokenExpiresAt() == null) {
+            return false;
+        }
+        com.google.cloud.Timestamp expiresAt = user.getTokenExpiresAt();
+        com.google.cloud.Timestamp nowMinusBuffer = com.google.cloud.Timestamp.ofTimeSecondsAndNanos(
+            com.google.cloud.Timestamp.now().getSeconds() - (5 * 60), 0); // 5 min buffer
+        return expiresAt.getSeconds() < nowMinusBuffer.getSeconds();
     }
 
     private Gmail createGmailService(User user) throws Exception {

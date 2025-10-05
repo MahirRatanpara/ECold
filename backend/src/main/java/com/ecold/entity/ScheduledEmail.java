@@ -1,58 +1,42 @@
 package com.ecold.entity;
 
-import jakarta.persistence.*;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import java.time.LocalDateTime;
 
 @Data
-@Entity
-@Table(name = "scheduled_emails")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ScheduledEmail {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @DocumentId
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    // userId is implicit in path: /users/{userId}/scheduled_emails/{emailId}
+    private String userId;
 
-    @Column(nullable = false)
     private String recipientEmail;
-
-    @Column(nullable = false)
     private String subject;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
-
-    @Column(nullable = false)
-    private LocalDateTime scheduleTime;
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status;
+    private Timestamp scheduleTime;
+    private Timestamp createdAt;
+    private String status; // Stored as String
 
     // Optional fields for template-based emails
-    private Long templateId;
-    private Long recruiterId;
+    private String templateId;
+    private String recruiterId;
 
     // Error tracking
     private String errorMessage;
-    private LocalDateTime sentAt;
+    private Timestamp sentAt;
     private String messageId;
 
     // Additional email options
-    private boolean isHtml;
+    private Boolean isHtml;
     private String priority;
 
     public enum Status {
@@ -62,11 +46,12 @@ public class ScheduledEmail {
         CANCELLED
     }
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = Status.SCHEDULED;
-        }
+    // Helper methods for enum conversion
+    public void setStatusEnum(Status status) {
+        this.status = status != null ? status.name() : null;
+    }
+
+    public Status getStatusEnum() {
+        return this.status != null ? Status.valueOf(this.status) : null;
     }
 }

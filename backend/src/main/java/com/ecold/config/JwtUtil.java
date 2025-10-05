@@ -2,20 +2,20 @@ package com.ecold.config;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
 
+@Slf4j
 @Component
 public class JwtUtil {
-    
+
     private final SecretKey key;
     private final int jwtExpirationMs;
-    
+
     public JwtUtil() {
         // Use a consistent secret key for JWT signing (in production, this should be from environment variables)
         String secret = "EColdApplicationSecretKeyForJWTTokenSigningMustBeLongerThan512Bits2024";
@@ -48,11 +48,9 @@ public class JwtUtil {
     public boolean validateToken(String token) {
         try {
             Jwts.parser().setSigningKey(key).build().parseClaimsJws(token);
-            System.out.println("JWT token validation successful");
             return true;
         } catch (JwtException | IllegalArgumentException e) {
-            System.err.println("Invalid JWT token: " + e.getClass().getSimpleName() + " - " + e.getMessage());
-            e.printStackTrace();
+            log.debug("Invalid JWT token: {}", e.getMessage());
             return false;
         }
     }

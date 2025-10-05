@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class IncomingEmailDto {
-    private Long id;
+    private String id;
     private String messageId;
     private String senderEmail;
     private String senderName;

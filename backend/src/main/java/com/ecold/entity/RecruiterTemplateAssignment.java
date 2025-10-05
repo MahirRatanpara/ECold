@@ -1,59 +1,43 @@
 package com.ecold.entity;
 
-import jakarta.persistence.*;
+import com.google.cloud.Timestamp;
+import com.google.cloud.firestore.annotation.DocumentId;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
-
-@Entity
-@Table(name = "recruiter_template_assignments")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RecruiterTemplateAssignment {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @DocumentId
+    private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recruiter_id", nullable = false)
-    private RecruiterContact recruiterContact;
+    // userId is implicit in path: /users/{userId}/assignments/{assignmentId}
+    private String userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "template_id", nullable = false)
-    private EmailTemplate emailTemplate;
+    // Store IDs instead of full objects
+    private String recruiterId;
+    private String templateId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Column(name = "week_assigned", nullable = false)
     private Integer weekAssigned;
-
-    @Column(name = "year_assigned", nullable = false)
     private Integer yearAssigned;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "assignment_status", nullable = false)
-    private AssignmentStatus assignmentStatus = AssignmentStatus.ACTIVE;
-
-    @Column(name = "emails_sent")
+    private String assignmentStatus; // Stored as String
     private Integer emailsSent = 0;
-
-    @Column(name = "last_email_sent_at")
-    private LocalDateTime lastEmailSentAt;
-
-    @CreationTimestamp
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    private Timestamp lastEmailSentAt;
+    private Timestamp createdAt;
+    private Timestamp updatedAt;
 
     public enum AssignmentStatus {
         ACTIVE, COMPLETED, MOVED_TO_FOLLOWUP, ARCHIVED
+    }
+
+    // Helper methods for enum conversion
+    public void setAssignmentStatusEnum(AssignmentStatus status) {
+        this.assignmentStatus = status != null ? status.name() : null;
+    }
+
+    public AssignmentStatus getAssignmentStatusEnum() {
+        return this.assignmentStatus != null ? AssignmentStatus.valueOf(this.assignmentStatus) : null;
     }
 }

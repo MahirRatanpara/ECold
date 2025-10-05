@@ -208,3 +208,8 @@ build/
 !**/src/test/**/build/
 
 .claude
+
+# Firebase/Firestore credentials
+database/firestore-key.json
+**/firestore-key.json
+backend/src/main/resources/firestore-key.json
