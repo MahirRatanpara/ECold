@@ -208,3 +208,4 @@ build/
 !**/src/test/**/build/
 
 .claude
+firestore-key.json
