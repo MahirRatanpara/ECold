@@ -112,4 +112,8 @@ scheduling:
     enabled: ${SCHEDULING_EMAIL_ENABLED:true}
     thread-pool-size: ${SCHEDULING_THREAD_POOL_SIZE:5}
 
+# Encryption Configuration
+encryption:
+  key: ${ENCRYPTION_KEY}
+
 
